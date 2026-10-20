@@ -134,6 +134,7 @@
 #include "ReleaseNote.hpp"
 #include "VersionPolicyDialog.hpp"
 #include "BetaVersionDialog.hpp"
+#include "BuildInfo.hpp"
 #include "PrivacyUpdateDialog.hpp"
 #include "MinorsLogoutDialog.hpp"
 #include "ModelMall.hpp"
@@ -417,7 +418,7 @@ public:
 
     static wxBitmap MakeBitmap()
     {
-        int width = FromDIP(480, nullptr);
+        int width = FromDIP(720, nullptr);
         int height = FromDIP(480, nullptr);
 
         wxImage image(width, height);
@@ -6747,6 +6748,9 @@ std::string GUI_App::format_display_version()
         else
             ++j;
     }
+
+    std::string commit = build_info_commit();
+    version_display += " (" + (commit.empty() ? "" : commit + ", ") + "paco, " + build_info_datetime() + ")";
     return version_display;
 }
 

@@ -280,6 +280,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GUI_Preview.hpp
     GUI/GUI_App.cpp
     GUI/GUI_App.hpp
+    GUI/BuildInfo.cpp
+    GUI/BuildInfo.hpp
     GUI/GUI_Utils.cpp
     GUI/GUI_Utils.hpp
     GUI/I18N.cpp
@@ -846,6 +848,14 @@ endif()
 if (TARGET device_page_html_build)
     add_dependencies(libslic3r_gui device_page_html_build)
 endif()
+
+add_custom_target(build_info
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/build_info.h
+            -P ${CMAKE_SOURCE_DIR}/cmake/modules/BuildInfo.cmake
+    BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/build_info.h
+)
+add_dependencies(libslic3r_gui build_info)
+target_include_directories(libslic3r_gui PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 #if (MSVC)
 #    target_compile_options(libslic3r_gui PRIVATE /Od /Zi)
