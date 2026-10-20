@@ -290,6 +290,15 @@ ObjectList::ObjectList(wxWindow* parent) :
 #endif //__WXMSW__
 
     Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,  &ObjectList::OnContextMenu,     this);
+#ifdef __WXGTK__
+    m_context_menu_timer.Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+        if (wxGetMouseState().RightIsDown())
+            return;
+        m_context_menu_timer.Stop();
+        wxDataViewEvent evt;
+        OnContextMenu(evt);
+    });
+#endif
 
     // BBS
     Bind(wxEVT_DATAVIEW_ITEM_BEGIN_DRAG,    &ObjectList::OnBeginDrag,       this);
@@ -1671,6 +1680,14 @@ void ObjectList::OnChar(wxKeyEvent& event)
 
 void ObjectList::OnContextMenu(wxDataViewEvent& evt)
 {
+#ifdef __WXGTK__
+    // wxGTK sends this on right button press, and GTK activates the menu item under the pointer on release.
+    // Wait for the release, as the 3D scene does.
+    if (wxGetMouseState().RightIsDown()) {
+        m_context_menu_timer.Start(20);
+        return;
+    }
+#endif
     // The mouse position returned by get_mouse_position_in_control() here is the one at the time the mouse button is released (mouse up event)
     wxPoint mouse_pos = this->get_mouse_position_in_control();
 

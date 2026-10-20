@@ -528,6 +528,9 @@ private:
     wxAcceleratorTable m_accel;
 #endif /* __WXOSX__ */
     void OnContextMenu(wxDataViewEvent &event);
+#ifdef __WXGTK__
+    wxTimer m_context_menu_timer;
+#endif
     void list_manipulation(const wxPoint& mouse_pos, bool evt_context_menu = false);
 
     // BBS
