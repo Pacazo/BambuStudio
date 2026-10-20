@@ -64,11 +64,14 @@ This module defines the following variables:
 
 include(FindPackageHandleStandardArgs)
 
-find_package(GLEW CONFIG QUIET)
+# The bundled static GLEW installs no config; a system one may lack GLEW::glew_s.
+if(NOT GLEW_USE_STATIC_LIBS)
+  find_package(GLEW CONFIG QUIET)
 
-if(GLEW_FOUND)
-  find_package_handle_standard_args(GLEW DEFAULT_MSG GLEW_CONFIG)
-  return()
+  if(GLEW_FOUND)
+    find_package_handle_standard_args(GLEW DEFAULT_MSG GLEW_CONFIG)
+    return()
+  endif()
 endif()
 
 if(GLEW_VERBOSE)

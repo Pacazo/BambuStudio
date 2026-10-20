@@ -104,6 +104,11 @@ if (SLIC3R_GUI)
         list(APPEND wxWidgets_LIBRARIES ${EXPAT_LIBRARIES})
     endif ()
 
+    if (ZLIB_FOUND AND "${wxWidgets_LIBRARIES}" MATCHES "libzlibstatic\\.a")
+        list(FILTER wxWidgets_LIBRARIES EXCLUDE REGEX "^libzlibstatic\\.a$")
+        list(APPEND wxWidgets_LIBRARIES ${ZLIB_LIBRARIES})
+    endif ()
+
     # This is an issue in the new wxWidgets cmake build, doesn't deal with librt
     find_library(LIBRT rt)
     if(LIBRT)

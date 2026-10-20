@@ -1,0 +1,57 @@
+FOUND_GTK3=$(rpm -qa | grep -P '^libgtk-3-0' || true)
+
+REQUIRED_DEV_PACKAGES=(
+    autoconf
+    automake
+    cmake
+    dbus-1-devel
+    eglexternalplatform-devel
+    extra-cmake-modules
+    file
+    gcc
+    gcc-c++
+    gettext-tools
+    git
+    perl
+    gstreamer-devel
+    gstreamer-plugins-base-devel
+    gstreamermm-devel
+    gtk3-devel
+    libmspack-devel
+    libsecret-devel
+    libtool
+    m4
+    glu-devel
+    Mesa-libGL-devel
+    ninja
+    libopenssl-devel
+    texinfo
+    wayland-devel
+    wayland-protocols-devel
+    libxkbcommon-devel
+    wget
+    libcurl-devel
+    libquadmath-devel
+    libudev-devel
+    nasm
+    yasm
+    libx264-devel
+    libbz2-devel
+)
+
+if [[ -n "$UPDATE_LIB" ]]
+then
+    NEEDED_PKGS=""
+    REQUIRED_DEV_PACKAGES+=(webkitgtk3-devel)
+    for PKG in ${REQUIRED_DEV_PACKAGES[@]}; do
+        rpm -q --whatprovides ${PKG} > /dev/null || NEEDED_PKGS+=" ${PKG}"
+    done
+
+    if [ -n "${NEEDED_PKGS}" ]; then
+        sudo zypper --non-interactive install ${NEEDED_PKGS}
+    fi
+    echo -e "done\n"
+    exit 0
+fi
+
+FOUND_GTK3_DEV=$(rpm -qa | grep -P '^gtk3-devel' || true)
