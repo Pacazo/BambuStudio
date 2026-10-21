@@ -1,10 +1,28 @@
 #!/bin/sh
 APPIMAGETOOLURL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+# appimagetool would otherwise download this runtime from GitHub on every run
+RUNTIMEURL="https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64"
 
 
 APP_IMAGE="@SLIC3R_APP_KEY@_ubu64.AppImage"
 
-wget ${APPIMAGETOOLURL} -O ../appimagetool.AppImage
+# Download into the build dir only when missing or when the server has a newer copy (-N).
+# If the server can't be reached, keep using the cached copy.
+fetch_cached() {
+    if ! wget -q -N --timeout=30 --tries=2 -P .. "$1"; then
+        if [ -f "../$(basename "$1")" ]; then
+            echo "Could not check $1 for updates, using the cached copy"
+        else
+            echo "Could not download $1"
+            exit 1
+        fi
+    fi
+}
+
+fetch_cached ${APPIMAGETOOLURL}
+fetch_cached ${RUNTIMEURL}
+# Work on a copy so the Docker patch below doesn't change the cached file and trigger a re-download
+cp -f ../appimagetool-x86_64.AppImage ../appimagetool.AppImage
 chmod +x ../appimagetool.AppImage
 
 if [ -f /.dockerenv ] ; then # Only run if inside of a Docker Container
@@ -40,9 +58,9 @@ EOF
 
 
 if [ -f /.dockerenv ] ; then # Only run if inside of a Docker Container
-  ../appimagetool.AppImage --appimage-extract-and-run . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
+  ../appimagetool.AppImage --appimage-extract-and-run --runtime-file ../runtime-x86_64 . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
 else
-  ../appimagetool.AppImage . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
+  ../appimagetool.AppImage --runtime-file ../runtime-x86_64 . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
 fi
 
 mv @SLIC3R_APP_KEY@-x86_64.AppImage ${APP_IMAGE}
