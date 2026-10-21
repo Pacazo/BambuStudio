@@ -155,11 +155,45 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
         (this->layer()->id() >= size_t(region_config.bottom_shell_layers.value) &&
          this->layer()->print_z >= region_config.bottom_shell_thickness - EPSILON);
 
+    Flow perimeter_flow     = wall_flow(frPerimeter);
+    Flow ext_perimeter_flow = wall_flow(frExternalPerimeter);
+    Flow solid_infill_flow  = wall_flow(frSolidInfill);
+    // A merged overhang wall is the only extrusion filling its Z span, so it needs the merged height just
+    // like the regular walls. Keep the original bridge flow for unmerged perimeters.
+    Flow overhang_flow      = wall_layer_height > this->layer()->height + EPSILON ?
+        wall_flow(frPerimeter).with_flow_ratio(region_config.bridge_flow) :
+        this->bridging_flow(frPerimeter, object_config.thick_bridges);
+    // min_line_width_on_interface: the first object layer on a raft lies wholly on the raft interface, so all its walls
+    // are widened; above supports only the overhang walls can lie on the support interface. The first object layer is
+    // the one without a lower layer: with a raft its id() counts the raft layers.
+    auto min_width_on_interface = [&object_config](const Flow &flow) {
+        return float(object_config.min_line_width_on_interface.value * 0.01 * flow.nozzle_diameter());
+    };
+    auto widen_on_interface = [&min_width_on_interface](const Flow &flow) {
+        const float min_width = min_width_on_interface(flow);
+        return flow.width() < min_width ? flow.with_width(min_width) : flow;
+    };
+    if (this->layer()->lower_layer == nullptr && object_config.raft_layers.value > 0) {
+        perimeter_flow     = widen_on_interface(perimeter_flow);
+        ext_perimeter_flow = widen_on_interface(ext_perimeter_flow);
+        solid_infill_flow  = widen_on_interface(solid_infill_flow);
+    } else if (this->layer()->lower_layer != nullptr && object_config.enable_support.value) {
+        const float min_width = min_width_on_interface(overhang_flow);
+        if (overhang_flow.bridge()) {
+            // Thick bridge: a round extrusion, its diameter is the line width
+            if (overhang_flow.width() < min_width)
+                overhang_flow = Flow::bridging_flow(min_width, overhang_flow.nozzle_diameter());
+        } else if (perimeter_flow.width() < min_width) {
+            // Widen the nominal line, then apply the bridge flow ratio as bridging_flow() does
+            overhang_flow = perimeter_flow.with_width(min_width).with_flow_ratio(region_config.bridge_flow);
+        }
+    }
+
     PerimeterGenerator g(
         // input:
         &slices,
         wall_layer_height,
-        wall_flow(frPerimeter),
+        perimeter_flow,
         &region_config,
         &this->layer()->object()->config(),
         &print_config,
@@ -190,13 +224,9 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
     g.layer_id              = (int)this->layer()->id();
     g.starts_at_object_base = first_object_layer;
     g.slice_z               = this->layer()->slice_z;
-    g.ext_perimeter_flow    = wall_flow(frExternalPerimeter);
-    // A merged overhang wall is the only extrusion filling its Z span, so it needs the merged height just
-    // like the regular walls. Keep the original bridge flow for unmerged perimeters.
-    g.overhang_flow         = wall_layer_height > this->layer()->height + EPSILON ?
-        wall_flow(frPerimeter).with_flow_ratio(region_config.bridge_flow) :
-        this->bridging_flow(frPerimeter, object_config.thick_bridges);
-    g.solid_infill_flow     = wall_flow(frSolidInfill);
+    g.ext_perimeter_flow    = ext_perimeter_flow;
+    g.overhang_flow         = overhang_flow;
+    g.solid_infill_flow     = solid_infill_flow;
     g.perimeter_regions     = &perimeter_regions;
 
     if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)

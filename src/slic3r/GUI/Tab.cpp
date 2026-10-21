@@ -3362,6 +3362,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("raft_first_layer_expansion"); // not only for raft, but for support too
         optgroup->append_single_option_line("tree_support_wall_count");
         append_multi_nozzle_auto_line(optgroup, "support_top_z_distance", "support#top-z-distance");
+        optgroup->append_single_option_line("min_line_width_on_interface", "support");
         append_multi_nozzle_auto_line(optgroup, "support_bottom_z_distance", "support#bottom-z-distance");
         optgroup->append_single_option_line("support_base_pattern", "support#base-pattern");
         optgroup->append_single_option_line("support_base_pattern_spacing", "support#base-pattern");

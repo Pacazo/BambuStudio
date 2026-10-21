@@ -1587,6 +1587,12 @@ void PerimeterGenerator::process_arachne()
                 if (const auto& min_bead_width_opt = object_config->min_bead_width)
                     input_params.min_bead_width = min_bead_width_opt.value * 0.01 * min_nozzle_diameter;
 
+                // The first object layer (no lower layer; with a raft layer_id counts the raft layers) lies on the raft
+                // interface: thin features no narrower than min_line_width_on_interface
+                if (this->lower_slices == nullptr && object_config->raft_layers.value > 0)
+                    input_params.min_bead_width = std::max<double>(input_params.min_bead_width,
+                                                                   object_config->min_line_width_on_interface.value * 0.01 * min_nozzle_diameter);
+
                 if (const auto& wall_transition_filter_deviation_opt = object_config->wall_transition_filter_deviation)
                     input_params.wall_transition_filter_deviation = wall_transition_filter_deviation_opt.value * 0.01 * min_nozzle_diameter;
 

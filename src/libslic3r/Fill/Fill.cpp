@@ -327,6 +327,31 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 		            else
 		                params.flow = layerm.bridging_flow(extrusion_role, false);
 		        }
+
+				// Minimum line width of the bottom surface printed on the support or raft interface: on a raft that is
+				// the first object layer (its id counts the raft layers, so test lower_layer), above supports the bridged
+				// bottom surfaces (detect_surfaces_type() cannot tell those resting on supports from the other bridges,
+				// as supports are generated after the infill).
+				const float min_width_on_interface = float(object_config.min_line_width_on_interface.value * 0.01 * params.flow.nozzle_diameter());
+				const bool  on_interface = min_width_on_interface > 0.f && surface.is_bottom() &&
+					(layer.lower_layer == nullptr ? object_config.raft_layers.value > 0 :
+					                   surface.surface_type == stBottomBridge && object_config.enable_support.value);
+				if (on_interface) {
+					if (params.flow.bridge()) {
+						// Thick bridge: a round extrusion, its diameter is the line width
+						if (params.flow.width() < min_width_on_interface)
+							params.flow = Flow::bridging_flow(min_width_on_interface, params.flow.nozzle_diameter());
+					} else {
+						// Widen the nominal line, then apply the bridge flow ratio as layerm.bridging_flow() does
+						Flow nominal = params.bridge ? layerm.region().flow(*layer.object(), extrusion_role, surface_height,
+						                                                    layer.id() == 0 || starts_at_object_base) :
+						                               params.flow;
+						if (nominal.width() < min_width_on_interface) {
+							nominal     = nominal.with_width(min_width_on_interface);
+							params.flow = params.bridge ? nominal.with_flow_ratio(region_config.bridge_flow) : nominal;
+						}
+					}
+				}
 				//BBS: record speed params
                 if (!params.bridge) {
                     if (params.extrusion_role == erInternalInfill)

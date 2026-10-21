@@ -1012,7 +1012,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
                      //BBS: add more support params to dependent of enable_support
                     "support_type", "support_on_build_plate_only",
                     "support_remove_small_overhang","support_interface_not_for_body",
-                    "support_object_xy_distance","support_object_first_layer_gap"/*, "independent_support_layer_height"*/})
+                    "support_object_xy_distance","support_object_first_layer_gap", "min_line_width_on_interface"/*, "independent_support_layer_height"*/})
         toggle_field(el, have_support_material);
     toggle_field("support_threshold_angle", have_support_material && is_auto(support_type));
     //toggle_field("support_closing_radius", have_support_material && support_style == smsSnug);
