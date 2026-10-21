@@ -809,20 +809,27 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     );
     option_nozzle_offset_cali_cali->Bind(EVT_SWITCH_PRINT_OPTION, &SelectMachineDialog::on_nozzle_offset_option_changed, this);
 
+    // Spans the whole options width: squeezed into one grid column, the wrapped label got less
+    // width than it was wrapped for, GTK re-wrapped it into more lines and the last ones were cut.
     m_pa_value_panel = new wxPanel(m_options_other);
-    m_pa_value_panel->SetMaxSize(wxSize(FromDIP(315), -1));
-    m_pa_value_panel->SetMinSize(wxSize(FromDIP(315), -1));
     wxBoxSizer *m_pa_value_panel_sizer = new wxBoxSizer(wxHORIZONTAL);
 
     m_pa_value_message = new Label(m_pa_value_panel, _L("Nozzles and filaments of the same type share the same PA profile"));
     m_pa_value_message->SetFont(Label::Body_14);
     m_pa_value_message->SetBackgroundColour(*wxWHITE);
-    m_pa_value_message->Wrap(FromDIP(243));
+    m_pa_value_message->Wrap(FromDIP(560));
+    const wxString pa_value_tooltip = _L("On: nozzles of the same type printing the same filament share one Pressure Advance (flow dynamics) "
+                                         "profile, so the printer may use any of them.\n"
+                                         "Off: each nozzle uses its own calibrated Pressure Advance value, and the nozzles are reassigned "
+                                         "according to their calibration results.\n"
+                                         "Only shown while Flow Dynamics Calibration is off, since otherwise the value is calibrated before printing.");
+    m_pa_value_message->SetToolTip(pa_value_tooltip);
 
     m_pa_value_switch = new SwitchButton(m_pa_value_panel);
     m_pa_value_switch->SetBackgroundColour(*wxWHITE);
     m_pa_value_switch->SetValue(true);
     m_pa_value_switch->Bind(wxEVT_TOGGLEBUTTON, &SelectMachineDialog::on_pa_value_switch_changed, this);
+    m_pa_value_switch->SetToolTip(pa_value_tooltip);
 
     m_pa_value_tips = new ScalableButton(m_pa_value_panel, wxID_ANY, "icon_qusetion", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, true);
     m_pa_value_tips->SetBackgroundColour(*wxWHITE);
@@ -898,7 +905,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
 
     options_sizer->Add(m_sizer_options, 0, wxEXPAND, 0);
     options_sizer->Add(0, 0, 1, wxTOP, FromDIP(8));
-    options_sizer->Add(m_pa_value_panel);
+    options_sizer->Add(m_pa_value_panel, 0, wxEXPAND);
     options_sizer->Add(0, 0, 1, wxTOP, FromDIP(12));
     options_sizer->Add(m_options_line_panel, 0, wxEXPAND, 0);
 
@@ -2830,24 +2837,29 @@ void SelectMachineDialog::EnableEditing(bool enable)
     enable ? m_saveTimeText->Enable() : m_saveTimeText->Disable();
 }
 
-/*content height > FromDIP(650), make the area scrollable*/
-/*content height < FromDIP(650), make the area size as the content*/
+/* Grow the scroll area to its content so all the options show without scrolling, up to what the screen allows;
+   past that the area scrolls. It never shrinks: resizing it both ways on every refresh left the page blank on some
+   platforms (STUDIO-12867), and growing only settles after the first refreshes. */
 void SelectMachineDialog::update_scroll_area_size() {
 
-    wxSize new_size(FromDIP(700), -1);
+    const int      display_idx = wxDisplay::GetFromWindow(this);
+    const wxRect   screen      = wxDisplay(display_idx == wxNOT_FOUND ? 0u : unsigned(display_idx)).GetClientArea();
+    const int      cur_height  = m_scroll_area->GetSize().GetHeight();
+    // The rest of the dialog, plus room for the title bar, which is not part of the window size on every platform
+    const int      other_height = GetSize().GetHeight() - cur_height + FromDIP(50);
+    const int      new_height   = std::min(m_scroll_area->GetSizer()->CalcMin().GetHeight(), screen.GetHeight() - other_height);
+    if (new_height <= cur_height) { return; }
 
-    int height = m_scroll_area->GetSizer()->CalcMin().GetHeight();
-    if (height < FromDIP(650)) {
-        new_size.SetHeight(height);
-    } else {
-        new_size.SetHeight(FromDIP(650));
-    }
+    const wxSize new_size(FromDIP(700), new_height);
+    m_scroll_area->SetMaxSize(new_size);
+    m_scroll_area->SetMinSize(new_size);
+    Layout();
+    Fit();
 
-    if (m_scroll_area->GetSize() != new_size) {
-        m_scroll_area->SetMaxSize(new_size);
-        m_scroll_area->SetMinSize(new_size);
-        Layout();
-        Fit();
+    // Keep the grown dialog on screen
+    const wxRect rect = GetScreenRect();
+    if (rect.GetBottom() > screen.GetBottom()) {
+        Move(rect.GetX(), std::max(screen.GetTop(), screen.GetBottom() - rect.GetHeight()));
     }
 }
 
@@ -3500,13 +3512,8 @@ void SelectMachineDialog::check_tpu_aero_flow_cali(MachineObject* obj)
     if (has_mapped && all_tpu_or_aero) {
         m_checkbox_list["flow_cali"]->setValue("off");
 
-        // Immediately update pa_panel visibility ?? same as on_flow_pa_caliation_option_changed
-        if (obj->is_support_pa_mode) {
-            m_pa_value_panel->Show();
-            Layout();
-        } else {
-            m_pa_value_panel->Hide();
-        }
+        // Immediately update pa_panel visibility �� same as on_flow_pa_caliation_option_changed
+        show_pa_value_panel(obj->is_support_pa_mode);
     }
 }
 
@@ -4413,7 +4420,7 @@ void SelectMachineDialog::update_by_obj(MachineObject* obj_)
     update_option_dynamic_state(obj_);
     update_show_status(obj_);
     update_print_status_msg();
-    //update_scroll_area_size();/*STUDIO-12867 the page maybe blank in some platform. FIXME*/
+    update_scroll_area_size();
 
     refresh_print_time(obj_);
 }
@@ -6801,14 +6808,18 @@ void SelectMachineDialog::on_flow_pa_caliation_option_changed(wxCommandEvent& ev
     }
 
     if (obj_ && obj_->is_support_pa_mode)
-    {
-        if (event.GetString() == "off")
-            m_pa_value_panel->Show();
-        else
-            m_pa_value_panel->Hide();
-        Layout();
-    }
+        show_pa_value_panel(event.GetString() == "off");
     event.Skip();
+}
+
+void SelectMachineDialog::show_pa_value_panel(bool show)
+{
+    m_pa_value_panel->Show(show);
+    // The options panel must grow with it; laying out only the dialog keeps its old height and cuts the row.
+    m_options_other->Layout();
+    m_options_other->Fit();
+    Layout();
+    update_scroll_area_size();
 }
 
 void SelectMachineDialog::on_pa_value_switch_changed(wxCommandEvent &event)

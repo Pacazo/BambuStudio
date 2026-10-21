@@ -699,6 +699,7 @@ private:
     void on_flow_pa_caliation_option_changed(wxCommandEvent& event);
     void on_nozzle_offset_option_changed(wxCommandEvent& event);
     void on_pa_value_switch_changed(wxCommandEvent &event);
+    void show_pa_value_panel(bool show);
 
     // get mapping nozzle display string for rack
     wxString get_mapped_nozzle_str(int fila_id);

@@ -2417,6 +2417,8 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     m_staticText_monitoring->Wrap(-1);
     // m_staticText_monitoring->SetFont(PAGE_TITLE_FONT);
     m_staticText_monitoring->SetForegroundColour(PAGE_TITLE_FONT_COL);
+    // The native best size came out a few pixels short of the text and cut its end; size it from the measured text
+    m_staticText_monitoring->SetMinSize(wxSize(m_staticText_monitoring->GetTextExtent(m_staticText_monitoring->GetLabel()).x + FromDIP(4), -1));
     bSizer_monitoring_title->Add(m_staticText_monitoring, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, PAGE_TITLE_LEFT_MARGIN);
 
     bSizer_monitoring_title->Add(FromDIP(13), 0, 0, 0);
