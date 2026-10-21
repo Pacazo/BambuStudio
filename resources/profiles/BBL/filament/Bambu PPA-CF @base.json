@@ -7,7 +7,7 @@
     "instantiation": "false",
     "description": "When printing this filament, there's a risk of nozzle clogging, oozing, warping and low layer adhesion strength. To get better results, please refer to this wiki: Printing Tips for High Temp / Engineering materials.",
     "filament_cost": [
-        "195.99"
+        "33332"
     ],
     "fins_extrude_safe_temp": [
         "227"

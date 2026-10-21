@@ -1140,7 +1140,7 @@ namespace Slic3r
                     ImGui::SameLine();
                     imgui.text(_u8L("Total cost") + ":");
                     ImGui::SameLine();
-                    ::sprintf(buf, "%.2f", total_cost_all_plates);
+                    ::sprintf(buf, "¥%.0f", total_cost_all_plates);
                     imgui.text(buf);
 
                     // Calculating Column Offsets for the Time Estimation Table
@@ -2221,7 +2221,7 @@ namespace Slic3r
                     ImGui::SameLine();
                     imgui.text(_u8L("Cost") + ":");
                     ImGui::SameLine();
-                    ::sprintf(buf, "%.2f", ps.total_cost);
+                    ::sprintf(buf, "¥%.0f", ps.total_cost);
                     imgui.text(buf);
                     ImGui::Dummy({ window_padding, window_padding });
                     ImGui::SameLine();
@@ -2349,7 +2349,7 @@ namespace Slic3r
                     ImGui::SameLine();
                     imgui.text(_u8L("Cost") + ":");
                     ImGui::SameLine();
-                    ::sprintf(buf, "%.2f", ps.total_cost);
+                    ::sprintf(buf, "¥%.0f", ps.total_cost);
                     imgui.text(buf);
                     break;
                 }
@@ -2760,7 +2760,7 @@ namespace Slic3r
                         ImGui::SameLine();
                         imgui.text(cost_str + ":");
                         ImGui::SameLine(max_len);
-                        ::sprintf(buf, "%.2f", ps.total_cost);
+                        ::sprintf(buf, "¥%.0f", ps.total_cost);
                         imgui.text(buf);
                     }
                     auto role_time = [time_mode](ExtrusionRole role) {

@@ -279,8 +279,9 @@ function getStatusTags(s) {
 /* ===== Price formatting ===== */
 var CURRENCY_SYMBOLS = {CNY:"¥", USD:"$", EUR:"€", JPY:"¥"};
 function formatPrice(price, currency) {
-    var sym = CURRENCY_SYMBOLS[currency] || "$";
-    return sym + " " + (price || 0).toFixed(2);
+    currency = currency || "JPY";
+    var sym = CURRENCY_SYMBOLS[currency] || "¥";
+    return sym + " " + (price || 0).toFixed(currency === "JPY" ? 0 : 2);
 }
 
 /* ===== Grouping ===== */
@@ -514,7 +515,8 @@ function openDialog(spool) {
         setVal("form-note", spool.note);
         updateCharCount();
     } else {
-        ["form-brand","form-type","form-series","form-color-name","form-dry-date","form-currency","form-price","form-note"].forEach(function(id) { setVal(id, ""); });
+        ["form-brand","form-type","form-series","form-color-name","form-dry-date","form-price","form-note"].forEach(function(id) { setVal(id, ""); });
+        setVal("form-currency", "JPY");
         document.getElementById("form-color-code").value = "";
         setVal("form-total-weight", 1000);
         setVal("form-spool-weight", 250);
@@ -750,7 +752,7 @@ function openDetail(id) {
     if (s.unit_price) {
         var csym = CURRENCY_SYMBOLS[s.price_currency] || "";
         var cname = s.price_currency ? s.price_currency + " (" + csym + ")" : "";
-        priceStr = cname + " " + s.unit_price.toFixed(2) + "/kg";
+        priceStr = cname + " " + s.unit_price.toFixed(s.price_currency === "JPY" ? 0 : 2) + "/kg";
     }
     document.getElementById("det-v-price").textContent = priceStr;
     document.getElementById("det-v-note").textContent = s.note || "—";
@@ -1224,7 +1226,7 @@ function renderStats() {
         totalValue += (s.unit_price || 0) * Math.max(0, nw) / 1000;
         if (s.color_name) colorSet[s.color_name] = true;
     });
-    document.getElementById("stat-total-value").textContent = "$ " + totalValue.toFixed(2);
+    document.getElementById("stat-total-value").textContent = "¥ " + totalValue.toFixed(0);
     document.getElementById("stat-total-count").textContent = spools.length;
     document.getElementById("stat-color-count").textContent = Object.keys(colorSet).length;
 
