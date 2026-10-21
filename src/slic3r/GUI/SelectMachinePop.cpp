@@ -203,7 +203,9 @@ void MachineObjectPanel::doRender(wxDC &dc)
     dc.DrawText(finally_name, wxPoint(left, (size.y - sizet.y) / 2));
 
 
-    if (m_hover || m_is_macos_special_version) {
+    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer
+    const bool show_lan_remove = m_show_bind && m_bind_state == ALLOW_UNBIND && m_info && m_info->is_lan_mode_printer();
+    if (m_hover || m_is_macos_special_version || show_lan_remove) {
 
         if (m_hover && !m_is_macos_special_version) {
             dc.SetPen(SELECT_MACHINE_BRAND);
@@ -679,12 +681,15 @@ void SelectMachinePopup::update_user_devices()
         op->update_machine_info(mobj, true);
         //set in lan
         if (mobj->is_lan_mode_printer()) {
+            // An offline LAN printer stays listed (it is kept across restarts) and can be removed with the unbind button
+            op->show_printer_bind(false, PrinterBindState::NONE);
+            op->show_edit_printer_name(false);
             if (!mobj->is_online()) {
-                continue;
+                op->SetToolTip(_L("Offline"));
+                op->set_printer_state(PrinterState::OFFLINE);
+                op->show_printer_bind(true, PrinterBindState::ALLOW_UNBIND);
             }
             else {
-                op->show_printer_bind(false, PrinterBindState::NONE);
-                op->show_edit_printer_name(false);
                 if (mobj->has_access_right() && mobj->is_avaliable()) {
                     op->set_printer_state(PrinterState::IN_LAN);
                     op->show_printer_bind(true, PrinterBindState::ALLOW_UNBIND);
@@ -695,11 +700,21 @@ void SelectMachinePopup::update_user_devices()
                 }
             }
             op->Bind(EVT_UNBIND_MACHINE, [this, dev, mobj](wxCommandEvent& e) {
+                // The button is always visible, so confirm before forgetting the printer
+                if (mobj) {
+                    MessageDialog confirm_dlg(nullptr,
+                                              wxString::Format(_L("Remove the printer %s? Its IP and access code will be forgotten."),
+                                                               from_u8(mobj->get_dev_name())),
+                                              _L("Remove printer"), wxICON_WARNING | wxYES_NO);
+                    if (confirm_dlg.ShowModal() != wxID_YES) { return; }
+                }
+
                 dev->set_selected_machine("");
                 if (mobj) {
                     mobj->set_access_code("");
                     mobj->erase_user_access_code();
                     mobj->erase_user_access_dev_ip();
+                    mobj->set_auto_base_ip(false);
                     wxGetApp().app_config->erase("user_access_dev_ip", mobj->get_dev_id());
                 }
 

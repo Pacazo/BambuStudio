@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <functional>
 #include <mutex>
 #include "libslic3r/CommonDefs.hpp"
@@ -28,12 +29,17 @@ private:
     std::string local_selected_machine;                         /* dev_id */
     std::map<std::string, MachineObject*> localMachineList;     /* dev_id -> MachineObject*, localMachine SSDP   */
     std::map<std::string, MachineObject*> userMachineList;      /* dev_id -> MachineObject*  cloudMachine of User */
+    std::chrono::steady_clock::time_point m_last_lan_reconnect; /* last automatic reconnection of the selected LAN machine */
 
 public:
     DeviceManager(NetworkAgent* agent = nullptr);
     ~DeviceManager();
 
 public:
+    /* dev_ip moved onto the /24 subnet of the Wi-Fi interface, keeping its last byte; empty if there is no
+       Wi-Fi address or the result equals dev_ip */
+    static std::string get_auto_base_ip(const std::string& dev_ip);
+
     NetworkAgent* get_agent() const { return m_agent; }
     void set_agent(NetworkAgent* agent) { m_agent = agent; }
 

@@ -336,6 +336,7 @@ public:
     TextInput* m_input_access_code{ nullptr };
     TextInput* m_input_sn{ nullptr };
     ComboBox*  m_input_modelID{ nullptr };
+    ::CheckBox* m_auto_base_ip{ nullptr };
     wxStaticBitmap* m_img_help{ nullptr };
     wxStaticBitmap* m_img_step1{ nullptr };
     wxStaticBitmap* m_img_step2{ nullptr };
@@ -362,7 +363,7 @@ public:
     void on_ok(wxMouseEvent& evt);
     void on_send_retry();
     static void workerThreadFunc(std::weak_ptr<InputIpAddressDialog> dialog, std::string str_ip,
-        std::string str_access_code, std::string sn, std::string model_id, int input_index);
+        std::string str_access_code, std::string sn, std::string model_id, int input_index, bool auto_base_ip);
     void OnTimer(wxTimerEvent& event);
     void on_text(wxCommandEvent& evt);
     void on_dpi_changed(const wxRect& suggested_rect) override;

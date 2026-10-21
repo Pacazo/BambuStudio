@@ -2288,25 +2288,41 @@ void GUI_App::init_networking_callbacks()
                                 obj->record_user_access_dev_ip();// only record access_dev_ip when lan mode
                                 GUI::wxGetApp().app_config->set_str("access_code", obj->get_dev_id(), obj->get_access_code());
                             } else if (state == ConnectStatus::ConnectStatusFailed) {
-                                m_device_manager->erase_local_machine(obj->get_dev_id());
-                                m_device_manager->set_selected_machine("");
                                 wxString text;
                                 if (msg == "5") {
+                                    m_device_manager->erase_local_machine(obj->get_dev_id());
+                                    m_device_manager->set_selected_machine("");
                                     obj->set_access_code("");
                                     obj->erase_user_access_code();
                                     obj->erase_user_access_dev_ip();
                                     text = wxString::Format(_L("Incorrect password"));
                                     wxGetApp().show_dialog(text);
                                 } else {
-                                    text = wxString::Format(_L("Connect %s failed! [SN:%s, code=%s]"), from_u8(obj->get_dev_name()), obj->get_dev_id(), msg);
-                                    wxGetApp().show_dialog(text);
+                                    // Not found: with "Change base IP automatically" the network may have changed, so
+                                    // retry on the Wi-Fi subnet. The retried address is already on it, so a second failure
+                                    // ends below. A successful connection persists the new IP (record_user_access_dev_ip).
+                                    const std::string base_ip = obj->is_auto_base_ip() ? DeviceManager::get_auto_base_ip(obj->get_dev_ip()) : "";
+                                    if (!base_ip.empty()) {
+                                        BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: failed, retry on the Wi-Fi subnet, ip = "
+                                                                << BBLCrossTalk::Crosstalk_DevIP(base_ip);
+                                        obj->set_dev_ip(base_ip);
+                                        m_device_manager->set_selected_machine(obj->get_dev_id());
+                                        return;
+                                    }
+
+                                    // An unreachable printer (powered off, asleep, network down) used to be dropped from
+                                    // the list and deselected, which also cleared it as the last selected machine, so it
+                                    // was forgotten. Keep it listed and selected as offline; DeviceManager::on_machine_alive
+                                    // reconnects it when it is seen on the network again. No dialog: the offline state shows it,
+                                    // and a printer that is simply powered off would raise one on every start.
+                                    obj->set_online_state(false);
+                                    BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: failed, keep the printer as offline, code = " << msg;
                                 }
                                 event.SetInt(-1);
                             } else if (state == ConnectStatus::ConnectStatusLost) {
-                                //obj->set_access_code("");
-                                //obj->erase_user_access_code();
-                                //m_device_manager->localMachineList.erase(obj->get_dev_id());
-                                m_device_manager->set_selected_machine("");
+                                // Same as a failed connection: keep the printer selected as offline instead of
+                                // forgetting it, so it reconnects when it comes back.
+                                obj->set_online_state(false);
                                 event.SetInt(-1);
                                 BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: state = lost";
                             } else {

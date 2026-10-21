@@ -25,10 +25,52 @@
 #include <boost/thread.hpp>
 #include "libslic3r/Log.hpp"
 
+#ifdef __linux__
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <unistd.h>
+#endif
+
 using namespace nlohmann;
 
 namespace Slic3r
 {
+    std::string DeviceManager::get_auto_base_ip(const std::string& dev_ip)
+    {
+#ifdef __linux__
+        in_addr dev_addr;
+        if (inet_pton(AF_INET, dev_ip.c_str(), &dev_addr) != 1) return "";
+
+        ifaddrs* if_addrs = nullptr;
+        if (getifaddrs(&if_addrs) != 0) return "";
+
+        std::string result;
+        for (const ifaddrs* ifa = if_addrs; ifa; ifa = ifa->ifa_next) {
+            if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET) continue;
+            if (!(ifa->ifa_flags & IFF_UP) || (ifa->ifa_flags & IFF_LOOPBACK)) continue;
+
+            // Wi-Fi interfaces expose a wireless or phy80211 entry in sysfs
+            const std::string sys_path = std::string("/sys/class/net/") + ifa->ifa_name;
+            if (access((sys_path + "/wireless").c_str(), F_OK) != 0 && access((sys_path + "/phy80211").c_str(), F_OK) != 0) continue;
+
+            const uint32_t if_ip = ntohl(reinterpret_cast<const sockaddr_in*>(ifa->ifa_addr)->sin_addr.s_addr);
+            in_addr new_addr;
+            new_addr.s_addr = htonl((if_ip & 0xFFFFFF00u) | (ntohl(dev_addr.s_addr) & 0xFFu));
+            char buf[INET_ADDRSTRLEN];
+            if (inet_ntop(AF_INET, &new_addr, buf, sizeof(buf))) {
+                result = buf;
+            }
+            break;
+        }
+        freeifaddrs(if_addrs);
+
+        return result == dev_ip ? "" : result;
+#else
+        return "";
+#endif
+    }
+
     DeviceManager::DeviceManager(NetworkAgent* agent)
     {
         m_agent = agent;
@@ -245,8 +287,23 @@ namespace Slic3r
                 if (obj->connection_type().empty() && obj->bind_state.empty())
                     obj->bind_state = "free";
 
-                obj->m_is_online = true;
+                // A selected LAN machine whose connection failed or was lost is kept as offline (see
+                // set_on_local_connect_fn); reconnect it now that it announces itself again. Retry at most once
+                // a minute, so a printer that keeps refusing the connection is not retried on every broadcast.
+                const bool reconnect = !obj->m_is_online && dev_id == selected_machine &&
+                                       obj->is_lan_mode_printer() && obj->has_access_right();
+                const auto now = std::chrono::steady_clock::now();
+                const bool defer_reconnect = reconnect && now - m_last_lan_reconnect < std::chrono::minutes(1);
+                if (!defer_reconnect) {
+                    obj->m_is_online = true;
+                }
                 obj->set_dev_name(dev_name);
+                if (reconnect && !defer_reconnect) {
+                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " selected lan machine is back, reconnect"
+                        << ", dev_id= " << BBLCrossTalk::Crosstalk_DevId(dev_id);
+                    m_last_lan_reconnect = now;
+                    set_selected_machine(dev_id);
+                }
                 /* if (!obj->dev_ip.empty()) {
                 Slic3r::GUI::wxGetApp().app_config->set_str("ip_address", obj->dev_id, obj->dev_ip);
                 Slic3r::GUI::wxGetApp().app_config->save();
@@ -450,7 +507,8 @@ namespace Slic3r
                     detectData.model_id     = DevPrinterConfigUtil::get_model_id_by_dev_id(local_access_info.dev_id);
                 }
 
-                GUI::wxGetApp().CallAfter([detectData, local_access_info]() {
+                const bool found = reject_reason == nullptr;
+                GUI::wxGetApp().CallAfter([detectData, local_access_info, found]() {
                     if (GUI::wxGetApp().is_closing()) return;
                     if (DeviceManager* dev = GUI::wxGetApp().getDeviceManager()) {
                         if (dev->get_local_machine(local_access_info.dev_id)) return;
@@ -460,6 +518,8 @@ namespace Slic3r
                                                             local_access_info.access_code, detectData.model_id);
                         if (obj) {
                             obj->set_user_access_code(local_access_info.access_code);
+                            // Listed but not found: show it as offline until it answers
+                            obj->set_online_state(found);
                         }
                     }
                 });

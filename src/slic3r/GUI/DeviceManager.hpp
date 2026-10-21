@@ -244,6 +244,10 @@ public:
     void record_user_access_dev_ip();
     void erase_user_access_dev_ip();
 
+    /* LAN: when the printer is not found, retry on the subnet of the Wi-Fi interface */
+    bool is_auto_base_ip() const;
+    void set_auto_base_ip(bool enable);
+
     //PRINTER_TYPE printer_type = PRINTER_3DPrinter_UKNOWN;
     std::string printer_type;       /* model_id */
     std::string   get_show_printer_type() const;

@@ -549,6 +549,23 @@ void MachineObject::erase_user_access_dev_ip()
     }
 }
 
+bool MachineObject::is_auto_base_ip() const
+{
+    AppConfig* config = GUI::wxGetApp().app_config;
+    return config && config->get("user_access_auto_base_ip", get_dev_id()) == "1";
+}
+
+void MachineObject::set_auto_base_ip(bool enable)
+{
+    if (AppConfig* config = GUI::wxGetApp().app_config) {
+        if (enable) {
+            config->set_str("user_access_auto_base_ip", get_dev_id(), "1");
+        } else {
+            config->erase("user_access_auto_base_ip", get_dev_id());
+        }
+    }
+}
+
 std::string MachineObject::get_show_printer_type() const
 {
     std::string printer_type = this->printer_type;

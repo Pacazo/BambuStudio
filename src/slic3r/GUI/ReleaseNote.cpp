@@ -1843,6 +1843,19 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     ip_input_bot_panel->Layout();
     ip_input_bot_panel->Fit();
 
+    /*follow the Wi-Fi subnet*/
+    const wxString auto_base_ip_tip = _L("If the printer is not found, keep the last number of its IP, take the first three "
+                                         "from this computer's Wi-Fi network and retry. Useful when the printer moves to another "
+                                         "network but keeps its last number.");
+    auto m_auto_base_ip_sizer = new wxBoxSizer(wxHORIZONTAL);
+    m_auto_base_ip = new ::CheckBox(this);
+    m_auto_base_ip->SetToolTip(auto_base_ip_tip);
+    auto auto_base_ip_label = new Label(this, ::Label::Body_13, _L("Change base IP automatically"));
+    auto_base_ip_label->SetToolTip(auto_base_ip_tip);
+    auto_base_ip_label->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { m_auto_base_ip->SetValue(!m_auto_base_ip->GetValue()); });
+    m_auto_base_ip_sizer->Add(m_auto_base_ip, 0, wxALIGN_CENTER_VERTICAL, 0);
+    m_auto_base_ip_sizer->Add(auto_base_ip_label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));
+
     /*other*/
     m_test_right_msg = new Label(this, Label::Body_13, wxEmptyString, LB_AUTO_WRAP);
     m_test_right_msg->SetForegroundColour(wxColour(61, 203, 115));
@@ -1949,6 +1962,8 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     m_sizer_main->Add(0, 0, 0, wxTOP, FromDIP(12));
     m_sizer_main->Add(ip_input_top_panel, 0,wxEXPAND, 0);
     m_sizer_main->Add(ip_input_bot_panel, 0,wxEXPAND, 0);
+    m_sizer_main->Add(0, 0, 0, wxTOP, FromDIP(8));
+    m_sizer_main->Add(m_auto_base_ip_sizer, 0, wxEXPAND, 0);
     m_sizer_main->Add(0, 0, 0, wxTOP, FromDIP(4));
     m_sizer_main->Add(0, 0, 0, wxTOP, FromDIP(4));
     m_sizer_main->Add(m_test_right_msg, 0, wxEXPAND, 0);
@@ -2045,6 +2060,7 @@ void InputIpAddressDialog::set_machine_obj(MachineObject* obj)
     m_obj = obj;
     m_input_ip->GetTextCtrl()->SetLabelText(m_obj->get_dev_ip());
     m_input_access_code->GetTextCtrl()->SetLabelText(m_obj->get_access_code());
+    m_auto_base_ip->SetValue(m_obj->is_auto_base_ip());
 
     /* The printer config may be missing for unknown printer types, fall back to a default image,
        otherwise create_scaled_bitmap() throws and the exception escapes to the message loop */
@@ -2147,7 +2163,8 @@ void InputIpAddressDialog::on_ok(wxMouseEvent& evt)
     token_.reset(this, nop_deleter);
     update_test_msg(_L("connecting..."), true);
     m_thread = new boost::thread(&InputIpAddressDialog::workerThreadFunc,
-        std::weak_ptr<InputIpAddressDialog>(token_), str_ip, str_access_code, str_sn, str_model_id, current_input_index);
+        std::weak_ptr<InputIpAddressDialog>(token_), str_ip, str_access_code, str_sn, str_model_id, current_input_index,
+        m_auto_base_ip->GetValue());
 }
 
 void InputIpAddressDialog::on_send_retry()
@@ -2233,7 +2250,7 @@ void InputIpAddressDialog::on_send_retry()
 }
 
 void InputIpAddressDialog::workerThreadFunc(std::weak_ptr<InputIpAddressDialog> w, std::string str_ip,
-    std::string str_access_code, std::string sn, std::string model_id, int input_index)
+    std::string str_access_code, std::string sn, std::string model_id, int input_index, bool auto_base_ip)
 {
     detectResult detectData;
     auto result = -1;
@@ -2243,6 +2260,18 @@ void InputIpAddressDialog::workerThreadFunc(std::weak_ptr<InputIpAddressDialog> 
         result = -3;
 #else
         result = wxGetApp().getAgent()->bind_detect(str_ip, "secure", detectData);
+        if (result < 0 && auto_base_ip) {
+            // Not found: retry on the subnet of the Wi-Fi interface, keeping the last byte
+            const std::string base_ip = DeviceManager::get_auto_base_ip(str_ip);
+            if (!base_ip.empty()) {
+                detectResult base_detect_data;
+                if (wxGetApp().getAgent()->bind_detect(base_ip, "secure", base_detect_data) >= 0) {
+                    result     = 0;
+                    detectData = std::move(base_detect_data);
+                    str_ip     = base_ip;
+                }
+            }
+        }
 #endif
 
     } else {
@@ -2257,7 +2286,7 @@ void InputIpAddressDialog::workerThreadFunc(std::weak_ptr<InputIpAddressDialog> 
     if (w.expired() || wxTheApp == nullptr)
         return;
 
-    wxTheApp->CallAfter([w, result, detectData = std::move(detectData),
+    wxTheApp->CallAfter([w, result, detectData = std::move(detectData), auto_base_ip,
         str_ip = std::move(str_ip), str_access_code = std::move(str_access_code)]() mutable {
         auto dialog = w.lock();
         if (!dialog) return;
@@ -2313,6 +2342,12 @@ void InputIpAddressDialog::workerThreadFunc(std::weak_ptr<InputIpAddressDialog> 
         }
 
         dialog->m_obj->set_user_access_code(str_access_code);
+        dialog->m_obj->set_auto_base_ip(auto_base_ip);
+        // Remember the IP now, not only after the first successful connection, so the printer is kept across
+        // restarts even if that connection fails
+        if (dialog->m_obj->is_lan_mode_printer()) {
+            dialog->m_obj->record_user_access_dev_ip();
+        }
         dev->set_selected_machine(dialog->m_obj->get_dev_id());
 
         dialog->closeCount = 1;
