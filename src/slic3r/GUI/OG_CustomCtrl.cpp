@@ -34,7 +34,7 @@ static bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)
             rect.GetTop() <= pt.y && pt.y <= rect.GetBottom();
 }
 
-// Options added or exposed by this fork; their labels get a red underline
+// Options added or exposed by this fork; their labels get a red square
 static bool is_custom_option(const std::string& opt_id)
 {
     static const std::set<std::string> custom_options = {
@@ -49,6 +49,22 @@ static bool is_custom_option(const std::string& opt_id)
         "filament_cost",
     };
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;
+}
+
+// Marker drawn left of the label: red square for options of this fork, dark green circle for advanced options,
+// dark green square for options shown only in developer mode
+static const OG_CustomCtrl::LabelMarker* get_label_marker(const Option& opt)
+{
+    static const OG_CustomCtrl::LabelMarker custom_marker  { wxColour(230, 0, 0), true,  3, L("Custom parameter") };
+    static const OG_CustomCtrl::LabelMarker develop_marker { wxColour(0, 100, 0), true,  2, L("Developer mode parameter") };
+    static const OG_CustomCtrl::LabelMarker advanced_marker{ wxColour(0, 100, 0), false, 1, L("Advanced parameter") };
+    if (is_custom_option(opt.opt_id))
+        return &custom_marker;
+    if (opt.opt.mode == comDevelop)
+        return &develop_marker;
+    if (opt.opt.mode == comAdvanced)
+        return &advanced_marker;
+    return nullptr;
 }
 
 static wxSize get_bitmap_size(const wxBitmap& bmp)
@@ -461,6 +477,14 @@ void OG_CustomCtrl::OnMotion(wxMouseEvent& event)
 
     for (CtrlLine& line : ctrl_lines) {
         if (!line.is_visible) continue;
+        // the markers carry their own tooltip, separate from the label one
+        auto marker_it = std::find_if(line.rects_marker.begin(), line.rects_marker.end(),
+                                      [&pos](const auto& rect_marker) { return is_point_in_rect(pos, rect_marker.first); });
+        if (marker_it != line.rects_marker.end()) {
+            line.is_focused = false;
+            tooltip = _(marker_it->second->tooltip);
+            break;
+        }
         line.is_focused = is_point_in_rect(pos, line.rect_label);
         if (line.is_focused) {
             if (!suppress_hyperlinks && !line.og_line.label_path.empty())
@@ -1318,6 +1342,7 @@ void OG_CustomCtrl::CtrlLine::render_nozzle_mirrors(wxDC& dc, wxCoord h_pos, wxC
 
 void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
 {
+    rects_marker.clear();
     if (is_separator()) {
         render_separator(dc, v_pos);
         return;
@@ -1449,10 +1474,15 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
             h_pos = draw_act_bmps(dc, wxPoint(h_pos, v_pos), multi_extruder.bmp(), multi_extruder.bmp(), false);
         }
         is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
-        bool is_custom = std::any_of(option_set.begin(), option_set.end(), [](const Option& opt) { return is_custom_option(opt.opt_id); });
+        const LabelMarker* marker = nullptr;
+        for (const Option& opt : option_set) {
+            const LabelMarker* opt_marker = get_label_marker(opt);
+            if (opt_marker && (!marker || opt_marker->priority > marker->priority))
+                marker = opt_marker;
+        }
         // BBS
         wxCoord indent = og_line.subline ? lround(1.5 * ctrl->m_em_unit) : 0;
-        h_pos = draw_text(dc, wxPoint(h_pos + indent, v_pos), label /* + ":" */, text_clr, icon_pos + ctrl->opt_group->label_width * ctrl->m_em_unit - h_pos, is_url_string, true, is_custom);
+        h_pos = draw_text(dc, wxPoint(h_pos + indent, v_pos), label /* + ":" */, text_clr, icon_pos + ctrl->opt_group->label_width * ctrl->m_em_unit - h_pos, is_url_string, true, marker);
         h_pos -= indent;
     }
     if (nozzle_group_active())
@@ -1536,7 +1566,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
             else if(opt == option_set.front())
                 is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
             wxColor c = StateColor::darkModeColorFor("#6B6B6B");
-            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? (field->blink() ? &blink_color : &c) : nullptr, ctrl->opt_group->sublabel_width * ctrl->m_em_unit, is_url_string, false, is_custom_option(opt.opt_id));
+            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? (field->blink() ? &blink_color : &c) : nullptr, ctrl->opt_group->sublabel_width * ctrl->m_em_unit, is_url_string, false, get_label_marker(opt));
             h_pos += 8;
         }
 
@@ -1571,8 +1601,18 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
     }
 }
 
-wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString &text, const wxColour *color, int width, bool is_url/* = false*/, bool is_main/* = false*/, bool is_custom/* = false*/)
+wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString &text, const wxColour *color, int width, bool is_url/* = false*/, bool is_main/* = false*/, const LabelMarker* marker/* = nullptr*/)
 {
+    // the marker takes room on the left of the label, inside the label width
+    const wxCoord label_x = pos.x;
+    wxCoord marker_size = 0;
+    if (marker && !text.IsEmpty()) {
+        marker_size = dc.GetTextExtent("M").x;
+        pos.x += marker_size + ctrl->FromDIP(4);
+        if (width > 0)
+            width = std::max(1, width - (pos.x - label_x));
+    }
+
     wxString multiline_text;
     auto size = Label::split_lines(dc, width, text, multiline_text);
 
@@ -1607,16 +1647,21 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
             wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 #endif /* _WIN32 */
         dc.DrawText(out_text, pos);
-        if (is_custom) {
-            wxPen old_pen = dc.GetPen();
-            dc.SetPen(wxPen(wxColour(230, 0, 0), std::max(1, ctrl->FromDIP(1))));
-            wxArrayString lines = wxSplit(out_text, '\n', '\0');
-            wxCoord line_height = dc.GetMultiLineTextExtent(out_text).y / std::max<size_t>(1, lines.size());
-            for (size_t i = 0; i < lines.size(); ++i) {
-                wxCoord y = pos.y + (i + 1) * line_height - 1;
-                dc.DrawLine(pos.x, y, pos.x + dc.GetTextExtent(lines[i]).x, y);
-            }
+        if (marker_size > 0) {
+            // centred on the first text line
+            wxCoord line_height = dc.GetTextExtent("M").y;
+            wxRect  rect(label_x, pos.y + (line_height - marker_size) / 2, marker_size, marker_size);
+            wxPen   old_pen   = dc.GetPen();
+            wxBrush old_brush = dc.GetBrush();
+            dc.SetPen(wxPen(marker->colour));
+            dc.SetBrush(wxBrush(marker->colour));
+            if (marker->is_square)
+                dc.DrawRectangle(rect);
+            else
+                dc.DrawEllipse(rect);
             dc.SetPen(old_pen);
+            dc.SetBrush(old_brush);
+            rects_marker.emplace_back(rect, marker);
         }
         dc.SetTextForeground(old_clr);
         dc.SetFont(old_font);
@@ -1625,7 +1670,7 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
             width = size.x;
     }
 
-    return pos.x + width + ctrl->m_h_gap;
+    return label_x + width + (pos.x - label_x) + ctrl->m_h_gap;
 }
 
 wxPoint OG_CustomCtrl::CtrlLine::draw_blinking_bmp(wxDC& dc, wxPoint pos, bool is_blinking)

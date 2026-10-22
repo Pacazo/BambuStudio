@@ -6766,7 +6766,7 @@ std::string GUI_App::format_display_version()
     }
 
     std::string commit = build_info_commit();
-    version_display += " (" + (commit.empty() ? "" : commit + ", ") + "paco, " + build_info_datetime() + ")";
+    version_display += " (" + (commit.empty() ? "" : commit + ", ") + build_info_datetime() + ")";
     return version_display;
 }
 
