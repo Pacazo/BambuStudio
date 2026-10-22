@@ -41,6 +41,11 @@ static bool is_custom_option(const std::string& opt_id)
         "raft_expansion",
         "min_line_width_on_interface",
         "filament_grouping_mode",
+        "override_chamber_temperature",
+        "chamber_temperature_override",
+        "disable_chamber_cooling",
+        "override_bed_temperature",
+        "bed_temperature_override",
         "filament_cost",
     };
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;

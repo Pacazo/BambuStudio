@@ -6190,6 +6190,46 @@ void PrintConfigDef::init_fff_params()
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<FilamentGroupingMode>(fgmDefault));
 
+    def = this->add("override_chamber_temperature", coBool);
+    def->label = L("Override chamber temperature");
+    def->tooltip = L("Use the chamber temperature below for the whole print instead of the chamber temperature of each filament. "
+                     "The high-temp and low-temp filament mixing checks are skipped.");
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("chamber_temperature_override", coInt);
+    def->label = L("Chamber temperature");
+    def->tooltip = L("Chamber temperature used for the whole print. 0 turns chamber heating off.");
+    def->sidetext = "°C";
+    def->min = 0;
+    def->max = 80;
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    def = this->add("disable_chamber_cooling", coBool);
+    def->label = L("Disable chamber cooling");
+    def->tooltip = L("Keep the chamber air ducts closed and the chamber fans off when the chamber is not heated, "
+                     "instead of switching to cooling mode at the start of the print. "
+                     "Only used when the chamber temperature is overridden. "
+                     "Requires a printer start G-code that supports it.");
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("override_bed_temperature", coBool);
+    def->label = L("Override bed temperature");
+    def->tooltip = L("Use the bed temperature below for every layer, filament and plate type instead of the bed temperatures of each filament.");
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("bed_temperature_override", coInt);
+    def->label = L("Bed temperature");
+    def->tooltip = L("Bed temperature used for the initial layer and all other layers.");
+    def->sidetext = "°C";
+    def->min = 0;
+    def->max = 120;
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionInt(60));
+
     def = this->add("farthest_point_timelapse", coBool);
     def->label = L("Farthest point timelapse");
     def->tooltip = L("When enabled, the timelapse snapshot is taken at the farthest point from camera "

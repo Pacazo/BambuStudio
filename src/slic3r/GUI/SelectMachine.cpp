@@ -4919,7 +4919,8 @@ void SelectMachineDialog::update_show_status(MachineObject* obj_)
         for (const FilamentInfo& item : m_ams_mapping_result) {
             try
             {
-                int chamber_temp = chamber_temperatures->values[item.id];
+                int chamber_temp = preset_full_config.opt_bool("override_chamber_temperature") ?
+                    preset_full_config.opt_int("chamber_temperature_override") : chamber_temperatures->values[item.id];
                 if (chamber_temp >= 40) {
                     const auto sliced = std::find_if(m_filaments.begin(), m_filaments.end(),
                                                      [&item](const FilamentInfo& fila) { return fila.id == item.id; });

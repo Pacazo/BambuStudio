@@ -193,6 +193,12 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "curr_bed_type",
         "nozzle_volume",
         "chamber_temperatures",
+        // the overridden filament temperatures are invalidated on their own keys
+        "override_chamber_temperature",
+        "chamber_temperature_override",
+        "disable_chamber_cooling",
+        "override_bed_temperature",
+        "bed_temperature_override",
         "required_nozzle_HRC",
         "upward_compatible_machine",
         "is_infill_first",
@@ -1839,6 +1845,14 @@ StringObjectException Print::validate(std::vector<StringObjectException> *warnin
 			warningtemp.opt_key = "precise_outer_wall";
 			warnings->push_back(std::move(warningtemp));
 		}
+    }
+
+    // the closed chamber is implemented in the printer start G-code, which has to read the option
+    if (warnings && m_config.disable_chamber_cooling && m_config.machine_start_gcode.value.find("disable_chamber_cooling") == std::string::npos) {
+        StringObjectException warningtemp;
+        warningtemp.string = L("Disable chamber cooling has no effect because the printer start G-code does not support it.");
+        warningtemp.opt_key = "disable_chamber_cooling";
+        warnings->push_back(std::move(warningtemp));
     }
 
     return {};

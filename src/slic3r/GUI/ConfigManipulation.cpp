@@ -1123,6 +1123,11 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
     for (auto el : { "slowdown_start_height", "slowdown_start_speed", "slowdown_start_acc", "slowdown_end_height", "slowdown_end_speed", "slowdown_end_acc" })
         toggle_line(el, has_height_slowdown, variant_index);
 
+    bool has_chamber_override = config->has("override_chamber_temperature") && config->opt_bool("override_chamber_temperature");
+    for (auto el : { "chamber_temperature_override", "disable_chamber_cooling" })
+        toggle_line(el, has_chamber_override);
+    toggle_line("bed_temperature_override", config->has("override_bed_temperature") && config->opt_bool("override_bed_temperature"));
+
     toggle_line("flush_into_objects", !is_global_config);
     toggle_line("print_flow_ratio", !is_global_config);
 

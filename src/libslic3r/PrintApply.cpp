@@ -1293,6 +1293,32 @@ static MultiNozzleSupportCombo multi_nozzle_support_combo(const DynamicPrintConf
     return combo;
 }
 
+// Replace the per-filament bed and chamber temperatures by the process overrides, so that every consumer
+// (validation, G-code, placeholders, exported config) sees the overridden values
+static void apply_temperature_overrides(DynamicPrintConfig &config)
+{
+    auto override_ints = [&config](const std::string &opt_key, int value) {
+        if (ConfigOptionInts *opt = config.option<ConfigOptionInts>(opt_key))
+            std::fill(opt->values.begin(), opt->values.end(), value);
+    };
+
+    const ConfigOptionBool *override_bed = config.option<ConfigOptionBool>("override_bed_temperature");
+    if (override_bed && override_bed->value) {
+        int bed_temp = config.opt_int("bed_temperature_override");
+        for (int type = btDefault + 1; type < btCount; ++type) {
+            override_ints(get_bed_temp_key(BedType(type)), bed_temp);
+            override_ints(get_bed_temp_1st_layer_key(BedType(type)), bed_temp);
+        }
+    }
+
+    const ConfigOptionBool *override_chamber = config.option<ConfigOptionBool>("override_chamber_temperature");
+    if (override_chamber && override_chamber->value)
+        override_ints("chamber_temperatures", config.opt_int("chamber_temperature_override"));
+    // disable_chamber_cooling is only shown with an overridden chamber temperature, so a value left over in the preset has no effect
+    else if (ConfigOptionBool *disable_cooling = config.option<ConfigOptionBool>("disable_chamber_cooling"))
+        disable_cooling->value = false;
+}
+
 Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_config, bool extruder_applied)
 {
 #ifdef _DEBUG
@@ -1322,6 +1348,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     new_full_config.normalize_fdm_1();
     DynamicConfig changed_keys_ori_values;
     t_config_option_keys changed_keys = new_full_config.normalize_fdm_2(objects().size(), used_filaments.size(), &changed_keys_ori_values);
+    apply_temperature_overrides(new_full_config);
     if (changed_keys.size() > 0) {
         BOOST_LOG_TRIVIAL(info) << boost::format("got changed_keys, size=%1%")%changed_keys.size();
         for (int i = 0; i < changed_keys.size(); i++)
