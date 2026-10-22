@@ -217,6 +217,12 @@ void MachineObjectPanel::doRender(wxDC &dc)
             if (m_bind_state == ALLOW_UNBIND) {
                 left = size.x - m_unbind_img.GetBmpSize().x - 6;
                 dc.DrawBitmap(m_unbind_img.bmp(), left, (size.y - m_unbind_img.GetBmpSize().y) / 2);
+                // Red underline marks a feature added by this fork
+                if (show_lan_remove) {
+                    int y = (size.y + m_unbind_img.GetBmpSize().y) / 2 + FromDIP(1);
+                    dc.SetPen(wxPen(wxColour(230, 0, 0), std::max(1, FromDIP(1))));
+                    dc.DrawLine(left, y, left + m_unbind_img.GetBmpSize().x, y);
+                }
             }
         }
 

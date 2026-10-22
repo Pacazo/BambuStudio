@@ -9,6 +9,7 @@
 #include "libslic3r/PresetBundle.hpp"
 
 #include <wx/utils.h>
+#include <algorithm>
 #include <set>
 #include <boost/algorithm/string/split.hpp>
 #include "libslic3r/Utils.hpp"
@@ -31,6 +32,18 @@ static bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)
 {
     return  rect.GetLeft() <= pt.x && pt.x <= rect.GetRight() &&
             rect.GetTop() <= pt.y && pt.y <= rect.GetBottom();
+}
+
+// Options added or exposed by this fork; their labels get a red underline
+static bool is_custom_option(const std::string& opt_id)
+{
+    static const std::set<std::string> custom_options = {
+        "raft_expansion",
+        "min_line_width_on_interface",
+        "filament_grouping_mode",
+        "filament_cost",
+    };
+    return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;
 }
 
 static wxSize get_bitmap_size(const wxBitmap& bmp)
@@ -1431,9 +1444,10 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
             h_pos = draw_act_bmps(dc, wxPoint(h_pos, v_pos), multi_extruder.bmp(), multi_extruder.bmp(), false);
         }
         is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
+        bool is_custom = std::any_of(option_set.begin(), option_set.end(), [](const Option& opt) { return is_custom_option(opt.opt_id); });
         // BBS
         wxCoord indent = og_line.subline ? lround(1.5 * ctrl->m_em_unit) : 0;
-        h_pos = draw_text(dc, wxPoint(h_pos + indent, v_pos), label /* + ":" */, text_clr, icon_pos + ctrl->opt_group->label_width * ctrl->m_em_unit - h_pos, is_url_string, true);
+        h_pos = draw_text(dc, wxPoint(h_pos + indent, v_pos), label /* + ":" */, text_clr, icon_pos + ctrl->opt_group->label_width * ctrl->m_em_unit - h_pos, is_url_string, true, is_custom);
         h_pos -= indent;
     }
     if (nozzle_group_active())
@@ -1517,7 +1531,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
             else if(opt == option_set.front())
                 is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
             wxColor c = StateColor::darkModeColorFor("#6B6B6B");
-            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? (field->blink() ? &blink_color : &c) : nullptr, ctrl->opt_group->sublabel_width * ctrl->m_em_unit, is_url_string);
+            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? (field->blink() ? &blink_color : &c) : nullptr, ctrl->opt_group->sublabel_width * ctrl->m_em_unit, is_url_string, false, is_custom_option(opt.opt_id));
             h_pos += 8;
         }
 
@@ -1552,7 +1566,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
     }
 }
 
-wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString &text, const wxColour *color, int width, bool is_url/* = false*/, bool is_main/* = false*/)
+wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString &text, const wxColour *color, int width, bool is_url/* = false*/, bool is_main/* = false*/, bool is_custom/* = false*/)
 {
     wxString multiline_text;
     auto size = Label::split_lines(dc, width, text, multiline_text);
@@ -1588,6 +1602,17 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
             wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 #endif /* _WIN32 */
         dc.DrawText(out_text, pos);
+        if (is_custom) {
+            wxPen old_pen = dc.GetPen();
+            dc.SetPen(wxPen(wxColour(230, 0, 0), std::max(1, ctrl->FromDIP(1))));
+            wxArrayString lines = wxSplit(out_text, '\n', '\0');
+            wxCoord line_height = dc.GetMultiLineTextExtent(out_text).y / std::max<size_t>(1, lines.size());
+            for (size_t i = 0; i < lines.size(); ++i) {
+                wxCoord y = pos.y + (i + 1) * line_height - 1;
+                dc.DrawLine(pos.x, y, pos.x + dc.GetTextExtent(lines[i]).x, y);
+            }
+            dc.SetPen(old_pen);
+        }
         dc.SetTextForeground(old_clr);
         dc.SetFont(old_font);
 

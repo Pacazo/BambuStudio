@@ -80,7 +80,7 @@ class OG_CustomCtrl :public wxPanel
         bool    nozzle_group_active() const;
         void    render_nozzle_group_arrow(wxDC& dc, wxCoord h_pos, wxCoord v_pos);
         wxCoord content_height() const;
-        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false, bool is_main = false);
+        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false, bool is_main = false, bool is_custom = false);
         wxPoint draw_blinking_bmp(wxDC& dc, wxPoint pos, bool is_blinking);
         wxCoord draw_act_bmps(wxDC& dc, wxPoint pos, const wxBitmap& bmp_undo_to_sys, const wxBitmap& bmp_undo, bool is_blinking, size_t rect_id = 0, bool skip_vertical_adjust = false);
         bool    launch_browser() const;
