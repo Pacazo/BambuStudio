@@ -15,6 +15,7 @@
 #include "FillConcentricInternal.hpp"
 #include "FillConcentric.hpp"
 #include "FillFloatingConcentric.hpp"
+#include "../MinLineWidthOnInterface.hpp"
 
 #define NARROW_INFILL_AREA_THRESHOLD 3
 
@@ -328,14 +329,15 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 		                params.flow = layerm.bridging_flow(extrusion_role, false);
 		        }
 
-				// Minimum line width of the bottom surface printed on the support or raft interface: on a raft that is
-				// the first object layer (its id counts the raft layers, so test lower_layer), above supports the bridged
-				// bottom surfaces (detect_surfaces_type() cannot tell those resting on supports from the other bridges,
-				// as supports are generated after the infill).
+				// Minimum line width of the bottom surface printed on the support or raft interface, only without a Z gap
+				// to it (see MinLineWidthOnInterface.hpp): on a raft that is the first object layer (its id counts the raft
+				// layers, so test lower_layer), above supports the bottom surfaces. Without a gap the surfaces resting on
+				// the support are stBottom (zero-gap contacts, GitHub #11540) or stBottomBridge (detect_surfaces_type()
+				// cannot tell those from the other bridges, as supports are generated after the infill).
 				const float min_width_on_interface = float(object_config.min_line_width_on_interface.value * 0.01 * params.flow.nozzle_diameter());
 				const bool  on_interface = min_width_on_interface > 0.f && surface.is_bottom() &&
-					(layer.lower_layer == nullptr ? object_config.raft_layers.value > 0 :
-					                   surface.surface_type == stBottomBridge && object_config.enable_support.value);
+					(layer.lower_layer == nullptr ? min_line_width_on_raft_interface(object_config) :
+					                                min_line_width_on_support_interface(object_config));
 				if (on_interface) {
 					if (params.flow.bridge()) {
 						// Thick bridge: a round extrusion, its diameter is the line width

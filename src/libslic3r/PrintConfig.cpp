@@ -6354,15 +6354,14 @@ void PrintConfigDef::init_fff_params()
     def = this->add("min_line_width_on_interface", coPercent);
     def->label = L("Minimum line width on interface");
     def->category = L("Support");
-    def->tooltip = L("Minimum line width of the object layer printed on top of the support or raft interface: walls and "
-                     "bottom surface. Narrower lines are widened to this value; the bridge flow ratio still applies on top of it. "
-                     "While support is enabled it also widens the other bridged bottom surfaces and overhang walls of the object. "
-                     "With a top Z distance of 0, normal support may print that surface as a regular bottom surface, which is not widened. "
-                     "It's expressed as a percentage over nozzle diameter. 0 to disable.");
+    def->tooltip = L("Widens the walls and bottom surface printed on the interface to at least this width, pressing the filament "
+                     "onto it for better adhesion. Only enabled without a Z gap: on supports when Top Z distance is 0, "
+                     "on a raft when Raft contact Z distance is 0. "
+                     "Percentage of the nozzle diameter, 0 to disable; 120% to 200% is recommended.");
     def->sidetext = "%";
     def->min = 0;
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionPercent(140));
+    def->set_default_value(new ConfigOptionPercent(0));
 
     def = this->add("support_angle", coFloat);
     def->label = L("Pattern angle");

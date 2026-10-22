@@ -8,6 +8,7 @@
 #include "BoundingBox.hpp"
 #include "SVG.hpp"
 #include "RegionExpansion.hpp"
+#include "MinLineWidthOnInterface.hpp"
 
 #include <string>
 #include <map>
@@ -165,7 +166,8 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
         this->bridging_flow(frPerimeter, object_config.thick_bridges);
     // min_line_width_on_interface: the first object layer on a raft lies wholly on the raft interface, so all its walls
     // are widened; above supports only the overhang walls can lie on the support interface. The first object layer is
-    // the one without a lower layer: with a raft its id() counts the raft layers.
+    // the one without a lower layer: with a raft its id() counts the raft layers. Only without a Z gap to the interface,
+    // see MinLineWidthOnInterface.hpp.
     auto min_width_on_interface = [&object_config](const Flow &flow) {
         return float(object_config.min_line_width_on_interface.value * 0.01 * flow.nozzle_diameter());
     };
@@ -173,11 +175,11 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
         const float min_width = min_width_on_interface(flow);
         return flow.width() < min_width ? flow.with_width(min_width) : flow;
     };
-    if (this->layer()->lower_layer == nullptr && object_config.raft_layers.value > 0) {
+    if (this->layer()->lower_layer == nullptr && min_line_width_on_raft_interface(object_config)) {
         perimeter_flow     = widen_on_interface(perimeter_flow);
         ext_perimeter_flow = widen_on_interface(ext_perimeter_flow);
         solid_infill_flow  = widen_on_interface(solid_infill_flow);
-    } else if (this->layer()->lower_layer != nullptr && object_config.enable_support.value) {
+    } else if (this->layer()->lower_layer != nullptr && min_line_width_on_support_interface(object_config)) {
         const float min_width = min_width_on_interface(overhang_flow);
         if (overhang_flow.bridge()) {
             // Thick bridge: a round extrusion, its diameter is the line width

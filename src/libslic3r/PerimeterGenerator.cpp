@@ -18,6 +18,7 @@
 #include <unordered_set>
 #include "OverhangDetector.hpp"
 #include "FuzzySkin.hpp"
+#include "MinLineWidthOnInterface.hpp"
 
 static const double narrow_loop_length_threshold = 10;
 //BBS: when the width of expolygon is smaller than
@@ -618,6 +619,16 @@ static void detect_brigde_wall_arachne(const PerimeterGenerator &perimeter_gener
     }
 }
 
+// min_line_width_on_interface as an Arachne bead width, 0 when disabled. A junction width is the spacing of the line:
+// thick_polyline_to_multi_path() adds height * (1 - PI / 4) to get the extrusion width.
+static coord_t min_bead_width_on_interface(const PerimeterGenerator &perimeter_generator)
+{
+    const double min_width = perimeter_generator.object_config->min_line_width_on_interface.value * 0.01 * perimeter_generator.perimeter_flow.nozzle_diameter();
+    if (min_width <= 0.)
+        return 0;
+    return scaled<coord_t>(std::max(0., min_width - perimeter_generator.layer_height * (1. - 0.25 * PI)));
+}
+
 static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& perimeter_generator, std::vector<PerimeterGeneratorArachneExtrusion>& pg_extrusions)
 {
     using ZPath = ClipperLib_Z::Path;
@@ -626,6 +637,16 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
     ExtrusionEntityCollection extrusion_coll;
     if (perimeter_generator.print_config->z_direction_outwall_speed_continuous)
          extrusion_coll.loop_node_range.first = perimeter_generator.loop_nodes->size();
+
+    // min_line_width_on_interface: Arachne sets the width of every line itself, so the widened flows of
+    // LayerRegion::make_perimeters() do not reach it. On a raft the first object layer lies wholly on the raft
+    // interface, so all its lines are widened (the first object layer is the one without a lower layer); above
+    // supports only the overhang lines are. Only without a Z gap to the interface, see MinLineWidthOnInterface.hpp.
+    const coord_t min_bead_width       = min_bead_width_on_interface(perimeter_generator);
+    const bool    widen_all_on_raft    = min_bead_width > 0 && perimeter_generator.lower_slices == nullptr &&
+                                         min_line_width_on_raft_interface(*perimeter_generator.object_config);
+    const bool    widen_overhang_lines = min_bead_width > 0 && perimeter_generator.lower_slices != nullptr &&
+                                         min_line_width_on_support_interface(*perimeter_generator.object_config);
 
     for (PerimeterGeneratorArachneExtrusion &pg_extrusion : pg_extrusions) {
         Arachne::ExtrusionLine* extrusion = pg_extrusion.extrusion;
@@ -660,6 +681,9 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
         // Apply fuzzy skin if it is enabled for at least some part of the ExtrusionLine.
         *extrusion = apply_fuzzy_skin(*extrusion, *(perimeter_generator.config), *(perimeter_generator.perimeter_regions), perimeter_generator.layer_id,
                                      pg_extrusion.extrusion->inset_idx, !pg_extrusion.extrusion->is_closed || pg_extrusion.is_contour, perimeter_generator.slice_z);
+        if (widen_all_on_raft)
+            for (Arachne::ExtrusionJunction &junction : extrusion->junctions)
+                junction.w = std::max(junction.w, min_bead_width);
 
         ExtrusionPaths paths;
         // detect overhanging/bridging perimeters
@@ -720,6 +744,10 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
             // the loop centerline and original lower slices is >= half nozzle diameter
             // detect if the overhang perimeter is bridge
             ZPaths path_overhang = clip_extrusion(subject_path, clip_paths, ClipperLib_Z::ctDifference);
+            if (widen_overhang_lines)
+                for (ZPath &overhang : path_overhang)
+                    for (auto &pt : overhang)
+                        pt.z() = std::max<ClipperLib_Z::cInt>(pt.z(), min_bead_width);
             // Zero-gap support must not force normal wall role/flow: unsupported walls still need
             // erOverhangPerimeter + overhang_flow. See GitHub #11462.
             detect_brigde_wall_arachne(perimeter_generator, paths, path_overhang, erOverhangPerimeter, perimeter_generator.overhang_flow);
@@ -1589,7 +1617,7 @@ void PerimeterGenerator::process_arachne()
 
                 // The first object layer (no lower layer; with a raft layer_id counts the raft layers) lies on the raft
                 // interface: thin features no narrower than min_line_width_on_interface
-                if (this->lower_slices == nullptr && object_config->raft_layers.value > 0)
+                if (this->lower_slices == nullptr && min_line_width_on_raft_interface(*object_config))
                     input_params.min_bead_width = std::max<double>(input_params.min_bead_width,
                                                                    object_config->min_line_width_on_interface.value * 0.01 * min_nozzle_diameter);
 
