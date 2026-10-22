@@ -208,7 +208,7 @@ struct TpuRegroupConfirmation
 };
 static TpuRegroupConfirmation s_tpu_regroup_confirmation;
 
-bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* partplate_ref, bool force_pop_up)
+bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* partplate_ref, bool force_pop_up, bool explicit_request)
 {
     auto full_config = wxGetApp().preset_bundle->full_config();
 
@@ -245,6 +245,27 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
                 reset_mode(partplate_ref);
             }
         }
+        return true;
+    }
+
+    FilamentGroupingMode grouping_mode = explicit_request ? fgmDefault :
+        full_config.option<ConfigOptionEnum<FilamentGroupingMode>>("filament_grouping_mode")->value;
+    if (grouping_mode == fgmFilamentSaving || grouping_mode == fgmConvenience) {
+        // skip the dialog and apply the preferred auto mode; like the dialog, fall back to filament saving when convenience is unavailable
+        FilamentMapMode preferred_mode = fmmAutoForFlush;
+        if (grouping_mode == fgmConvenience && plater_ref->get_machine_sync_status())
+            preferred_mode = fmmAutoForMatch;
+        FilamentMapMode new_mode = resolve_available_auto_modes(partplate_ref->fff_print(), { preferred_mode }, plater_ref->get_machine_sync_status()).front();
+        std::vector<PartPlate*> plates = is_slice_all ? plater_ref->get_partplate_list().get_plate_list() : std::vector<PartPlate*>{ partplate_ref };
+        bool changed = false;
+        for (PartPlate* plate : plates) {
+            if (plate->get_real_filament_map_mode(full_config) != new_mode) {
+                plate->set_filament_map_mode(new_mode);
+                changed = true;
+            }
+        }
+        if (changed)
+            plater_ref->update(false, true);
         return true;
     }
 
@@ -298,7 +319,7 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
     const bool tpu_regroup_confirmed = !is_slice_all
         && pending_confirmation.plate_id == partplate_ref->id()
         && pending_confirmation.slice_invalid_epoch == partplate_ref->get_slice_invalid_epoch();
-    if (!force_pop_up && (applied_mode != fmmManual || tpu_regroup_confirmed)) {
+    if (!force_pop_up && ((applied_mode != fmmManual && grouping_mode != fgmCustom) || tpu_regroup_confirmed)) {
         // Slice all uses one auto mode on every plate. Manual modes are left alone: applied_mode has
         // fmmNozzleManual folded into fmmManual, and writing that back would clear the plate maps.
         if (is_auto_filament_map_mode(applied_mode)) {
@@ -332,6 +353,8 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
         false,
         available_modes
     );
+    if (grouping_mode == fgmCustom)
+        map_dlg.select_manual_page();
     auto ret = map_dlg.ShowModal();
 
     if (ret == wxID_OK) {

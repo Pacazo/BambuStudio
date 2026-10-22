@@ -236,7 +236,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "ams_filament_unload_time_n3f_s",
     };
 
-    static std::unordered_set<std::string> steps_ignore;
+    // Only decides whether the filament grouping dialog pops up before slicing
+    static std::unordered_set<std::string> steps_ignore = { "filament_grouping_mode" };
 
     std::vector<PrintStep> steps;
     std::vector<PrintObjectStep> osteps;

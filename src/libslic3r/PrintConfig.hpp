@@ -417,6 +417,14 @@ enum FilamentMetalStickiness {
     fmsHigh         // High metal stickiness (e.g. PETG) - retraction should not be skipped
 };
 
+// How the filament grouping dialog is handled before slicing
+enum FilamentGroupingMode {
+    fgmDefault,         // original behaviour
+    fgmFilamentSaving,  // skip the dialog, auto for flush
+    fgmConvenience,     // skip the dialog, auto for match
+    fgmCustom           // always show the dialog, on the custom page
+};
+
 inline bool is_auto_filament_map_mode(FilamentMapMode mode) {
     return mode == fmmAutoForFlush || mode == fmmAutoForMatch || mode == fmmAutoForQuality;
 }
@@ -601,6 +609,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLAPillarConnectionMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BrimType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(TimelapseType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SideScrapeFace)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FilamentGroupingMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BedType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(DraftShield)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ForwardCompatibilitySubstitutionRule)
@@ -1728,6 +1737,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloatsNullable,     nozzle_volume))
     ((ConfigOptionPoints,             start_end_points))
     ((ConfigOptionEnum<TimelapseType>,    timelapse_type))
+    ((ConfigOptionEnum<FilamentGroupingMode>, filament_grouping_mode))
     ((ConfigOptionBool,               farthest_point_timelapse))
     ((ConfigOptionFloat,              default_jerk))
     ((ConfigOptionFloat,              outer_wall_jerk))

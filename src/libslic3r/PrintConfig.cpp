@@ -919,6 +919,14 @@ static const t_config_enum_values s_keys_map_FilamentMapMode = {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FilamentMapMode)
 
+static const t_config_enum_values s_keys_map_FilamentGroupingMode = {
+    { "default", fgmDefault },
+    { "filament_saving", fgmFilamentSaving },
+    { "convenience", fgmConvenience },
+    { "custom", fgmCustom }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FilamentGroupingMode)
+
 static const t_config_enum_values s_keys_map_PrimeVolumeMode = {
     { "Default", pvmDefault},
     { "Saving", pvmSaving},
@@ -6162,6 +6170,25 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.emplace_back(L("Smooth"));
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<TimelapseType>(tlTraditional));
+
+    def = this->add("filament_grouping_mode", coEnum);
+    def->label = L("Filament grouping mode");
+    def->tooltip = L("How filaments are grouped between the nozzles before slicing on multi-extruder printers. "
+                     "Default keeps the original behaviour. "
+                     "Filament-Saving and Convenience skip the dialog and apply that auto grouping mode. "
+                     "Convenience falls back to Filament-Saving when the printer is not connected. "
+                     "Custom always shows the \"Filament grouping\" dialog with the custom tab selected.");
+    def->enum_keys_map = &ConfigOptionEnum<FilamentGroupingMode>::get_enum_values();
+    def->enum_values.emplace_back("default");
+    def->enum_values.emplace_back("filament_saving");
+    def->enum_values.emplace_back("convenience");
+    def->enum_values.emplace_back("custom");
+    def->enum_labels.emplace_back(L("Default"));
+    def->enum_labels.emplace_back(L("Filament-Saving"));
+    def->enum_labels.emplace_back(L("Convenience"));
+    def->enum_labels.emplace_back(L("Custom"));
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionEnum<FilamentGroupingMode>(fgmDefault));
 
     def = this->add("farthest_point_timelapse", coBool);
     def->label = L("Farthest point timelapse");

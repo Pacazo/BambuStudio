@@ -3390,6 +3390,9 @@ void TabPrint::build()
         optgroup->append_single_option_line("tree_support_tip_diameter", "support#tree-support-only-options");
 
     page = add_options_page(L("Others"), "advanced");
+        optgroup = page->new_optgroup(L("General options"), L"advanced");
+        optgroup->append_single_option_line("filament_grouping_mode");
+
         optgroup = page->new_optgroup(L("Bed adhension"), L"param_adhension");
         optgroup->append_single_option_line("skirt_loops");
         optgroup->append_single_option_line("skirt_height");

@@ -26,9 +26,10 @@ class SmartFilamentPanel;
  * @param is_slice_all  In slice all
  * @param plater_ref Plater to get/set global filament map
  * @param partplate_ref Partplate to get/set plate filament map mode
+ * @param explicit_request The user asked for the dialog (e.g. "regroup"), so ignore filament_grouping_mode
  * @return whether continue slicing
 */
-bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* partplate_ref, bool force_pop_up = false);
+bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* partplate_ref, bool force_pop_up = false, bool explicit_request = false);
 std::vector<FilamentMapMode> resolve_available_auto_modes(Print *print_obj, const std::vector<FilamentMapMode> &requested_modes, bool machine_synced);
 /**
  * @brief Mode to use when the stored one cannot be used right now.
@@ -89,6 +90,7 @@ public:
     }
 
     int ShowModal() override;
+    void select_manual_page() { m_page_type = PageType::ptManual; }
 
 private:
     void make_header(wxBoxSizer *sizer, bool only_saving_mode, bool single_default_mode, bool show_manual_mode);
