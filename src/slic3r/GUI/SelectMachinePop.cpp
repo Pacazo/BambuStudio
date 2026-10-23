@@ -150,6 +150,23 @@ void MachineObjectPanel::render(wxDC &dc)
 #endif
 }
 
+// Red circle right of the always-visible remove button of a LAN printer, a feature of this fork
+static const wxString lan_remove_mark = wxString::FromUTF8("\xE2\x97\x8F"); // U+25CF ●
+
+bool MachineObjectPanel::is_lan_remove_shown() const
+{
+    return m_show_bind && m_bind_state == ALLOW_UNBIND && m_info && m_info->is_lan_mode_printer();
+}
+
+int MachineObjectPanel::lan_remove_mark_room()
+{
+    if (!is_lan_remove_shown())
+        return 0;
+    wxClientDC dc(this);
+    dc.SetFont(Label::Body_13);
+    return dc.GetTextExtent(lan_remove_mark).x + FromDIP(4);
+}
+
 void MachineObjectPanel::doRender(wxDC &dc)
 {
     auto   left = 10;
@@ -181,20 +198,17 @@ void MachineObjectPanel::doRender(wxDC &dc)
     auto        sizet        = dc.GetTextExtent(dev_name);
     auto        text_end     = 0;
 
+    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer.
+    // The red circle right of it marks this feature of this fork; the buttons and the name move left to make room.
+    const bool show_lan_remove = is_lan_remove_shown();
+    const int  mark_room       = lan_remove_mark_room();
+
     if (m_show_edit) {
-        text_end = size.x - m_unbind_img.GetBmpSize().x - 30;
+        text_end = size.x - mark_room - m_unbind_img.GetBmpSize().x - 30;
     }
     else {
-        text_end = size.x - m_unbind_img.GetBmpSize().x;
+        text_end = size.x - mark_room - m_unbind_img.GetBmpSize().x;
     }
-
-    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer.
-    // The red circle left of the buttons marks this feature of this fork; the name gives way to it.
-    const bool     show_lan_remove = m_show_bind && m_bind_state == ALLOW_UNBIND && m_info && m_info->is_lan_mode_printer();
-    const wxString custom_mark     = show_lan_remove ? wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */ : wxString();
-    const wxSize   custom_mark_size = dc.GetTextExtent(custom_mark);
-    if (show_lan_remove)
-        text_end -= custom_mark_size.x + FromDIP(4);
 
     wxString finally_name =  dev_name;
     if (sizet.x > (text_end - left)) {
@@ -221,19 +235,20 @@ void MachineObjectPanel::doRender(wxDC &dc)
 
         if (m_show_bind) {
             if (m_bind_state == ALLOW_UNBIND) {
-                left = size.x - m_unbind_img.GetBmpSize().x - 6;
+                left = size.x - mark_room - m_unbind_img.GetBmpSize().x - 6;
                 dc.DrawBitmap(m_unbind_img.bmp(), left, (size.y - m_unbind_img.GetBmpSize().y) / 2);
             }
         }
 
         if (m_show_edit) {
-            left = size.x - m_unbind_img.GetBmpSize().x - 6 - m_edit_name_img.GetBmpSize().x - 6;
+            left = size.x - mark_room - m_unbind_img.GetBmpSize().x - 6 - m_edit_name_img.GetBmpSize().x - 6;
             dc.DrawBitmap(m_edit_name_img.bmp(), left, (size.y - m_edit_name_img.GetBmpSize().y) / 2);
         }
 
         if (show_lan_remove) {
+            const wxSize mark_size = dc.GetTextExtent(lan_remove_mark);
             dc.SetTextForeground(wxColour(230, 0, 0));
-            dc.DrawText(custom_mark, left - FromDIP(4) - custom_mark_size.x, (size.y - custom_mark_size.y) / 2);
+            dc.DrawText(lan_remove_mark, size.x - 6 - mark_size.x, (size.y - mark_size.y) / 2);
         }
     }
 
@@ -263,7 +278,7 @@ void MachineObjectPanel::on_mouse_left_up(wxMouseEvent &evt)
     if (m_is_my_devices) {
         // show edit
         if (m_show_edit) {
-            auto edit_left   = GetSize().x - m_unbind_img.GetBmpSize().x - 6 - m_edit_name_img.GetBmpSize().x - 6;
+            auto edit_left   = GetSize().x - lan_remove_mark_room() - m_unbind_img.GetBmpSize().x - 6 - m_edit_name_img.GetBmpSize().x - 6;
             auto edit_right  = edit_left + m_edit_name_img.GetBmpSize().x;
             auto edit_top    = (GetSize().y - m_edit_name_img.GetBmpSize().y) / 2;
             auto edit_bottom = (GetSize().y - m_edit_name_img.GetBmpSize().y) / 2 + m_edit_name_img.GetBmpSize().y;
@@ -275,7 +290,7 @@ void MachineObjectPanel::on_mouse_left_up(wxMouseEvent &evt)
             }
         }
         if (m_show_bind) {
-            auto left   = GetSize().x - m_unbind_img.GetBmpSize().x - 6;
+            auto left   = GetSize().x - lan_remove_mark_room() - m_unbind_img.GetBmpSize().x - 6;
             auto right  = left + m_unbind_img.GetBmpSize().x;
             auto top    = (GetSize().y - m_unbind_img.GetBmpSize().y) / 2;
             auto bottom = (GetSize().y - m_unbind_img.GetBmpSize().y) / 2 + m_unbind_img.GetBmpSize().y;

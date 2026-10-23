@@ -3124,7 +3124,8 @@ void TreeSupport::generate_toolpaths()
             raft_areas.push_back(expoly);
     }
 
-    raft_areas = std::move(offset_ex(raft_areas, scale_(3.)));
+    // this fork: the raft expansion was fixed at 3 mm, ignoring the "Raft expansion" option exposed in the UI
+    raft_areas = std::move(offset_ex(raft_areas, scale_(m_object_config->raft_expansion.value)));
 
     size_t layer_nr = 0;
     for (; layer_nr < m_slicing_params.base_raft_layers; layer_nr++) {

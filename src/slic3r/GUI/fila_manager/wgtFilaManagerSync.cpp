@@ -414,7 +414,8 @@ bool wgtFilaManagerSync::sync_all_trays(MachineObject* obj)
         }
     }
 
-    return mount_changed;
+    // A new remaining weight also has to reach the open Filament Manager page (this fork), not only a mount change
+    return mount_changed || any_changed;
 }
 
 const FilamentSpool* wgtFilaManagerSync::match_tray(const DevAmsTray& tray,

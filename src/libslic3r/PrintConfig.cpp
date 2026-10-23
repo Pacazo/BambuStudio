@@ -6208,7 +6208,8 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("disable_chamber_cooling", coBool);
     def->label = L("Disable chamber cooling");
-    def->tooltip = L("Keep the chamber air ducts closed and the chamber fans off when the chamber is not heated, "
+    def->tooltip = L("When the chamber temperature is below 40 °C, keep the chamber air ducts closed and the chamber fans off, "
+                     "and set the chamber heater to 40 °C without waiting for it, "
                      "instead of switching to cooling mode at the start of the print. "
                      "Only used when the chamber temperature is overridden. "
                      "Requires a printer start G-code that supports it.");

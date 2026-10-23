@@ -123,6 +123,10 @@ protected:
     void OnPaint(wxPaintEvent &event);
     void render(wxDC &dc);
     void doRender(wxDC &dc);
+    // the remove button of a LAN printer is always shown, with a red circle on its right
+    bool is_lan_remove_shown() const;
+    // width kept right of the remove button for that circle, 0 when it is not shown
+    int  lan_remove_mark_room();
     void on_mouse_enter(wxMouseEvent &evt);
     void on_mouse_leave(wxMouseEvent &evt);
     void on_mouse_left_up(wxMouseEvent &evt);
