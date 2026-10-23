@@ -285,6 +285,17 @@ void ButtonsListCtrl::SetPageToolTip(size_t n, const wxString &strToolTip)
     m_pageButtons[n]->SetToolTip(strToolTip);
 }
 
+void ButtonsListCtrl::SetPageLabelMark(size_t n, const wxString& mark, const wxColour& colour)
+{
+    if (n >= m_pageButtons.size()) return;
+    Button* btn = m_pageButtons[n];
+    btn->SetLabelMark(mark, colour);
+    // the mark widens the label: let the tab grow to fit it
+    if (!btn->GetLabel().empty())
+        set_label_tab_size(btn, em_unit(this));
+    m_sizer->Layout();
+}
+
 wxString ButtonsListCtrl::GetPageText(size_t n) const
 {
     Button* btn = m_pageButtons[n];

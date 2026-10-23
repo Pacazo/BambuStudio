@@ -229,6 +229,8 @@ void Button::render(wxDC& dc)
         }
     }
     auto szContent = text.IsEmpty() ? wxSize(0, 0) : textSize;
+    const int mark_width = text.IsEmpty() ? 0 : label_mark_width(dc);
+    szContent.x += mark_width;
     if (icon.bmp().IsOk()) {
         if (szContent.y > 0) {
             //BBS norrow size between text and icon
@@ -279,13 +281,33 @@ void Button::render(wxDC& dc)
         if (vertical) {
             pt.x += (rcContent.width - textSize.x) / 2;
         } else {
+            pt.y += (rcContent.height - textSize.y) / 2;
+            if (mark_width > 0) {
+                dc.SetTextForeground(m_label_mark_colour);
+                dc.DrawText(m_label_mark, pt);
+                pt.x += mark_width;
+            }
             if (pt.x + textSize.x > size.x)
                 text = wxControl::Ellipsize(text, dc, wxELLIPSIZE_END, size.x - pt.x);
-            pt.y += (rcContent.height - textSize.y) / 2;
         }
         dc.SetTextForeground(text_color.colorForStates(states));
         dc.DrawText(text, pt);
     }
+}
+
+int Button::label_mark_width(wxDC& dc) const
+{
+    if (m_label_mark.IsEmpty() || vertical || GetLabel().IsEmpty())
+        return 0;
+    return dc.GetTextExtent(m_label_mark).x + FromDIP(4);
+}
+
+void Button::SetLabelMark(const wxString& mark, const wxColour& colour)
+{
+    m_label_mark        = mark;
+    m_label_mark_colour = colour;
+    messureSize();
+    Refresh();
 }
 
 void Button::renderWhiteCorners(wxDC& dc)
@@ -352,6 +374,7 @@ void Button::messureSize()
     wxFontMetrics fm = dc.GetFontMetrics();
     textSize.height = fm.ascent + fm.descent;
     wxSize szContent = textSize.GetSize();
+    szContent.x += label_mark_width(dc);
     if (this->active_icon.bmp().IsOk()) {
         if (szContent.y > 0) {
             //BBS norrow size between text and icon

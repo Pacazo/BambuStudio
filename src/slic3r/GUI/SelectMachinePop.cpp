@@ -188,6 +188,14 @@ void MachineObjectPanel::doRender(wxDC &dc)
         text_end = size.x - m_unbind_img.GetBmpSize().x;
     }
 
+    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer.
+    // The red circle left of the buttons marks this feature of this fork; the name gives way to it.
+    const bool     show_lan_remove = m_show_bind && m_bind_state == ALLOW_UNBIND && m_info && m_info->is_lan_mode_printer();
+    const wxString custom_mark     = show_lan_remove ? wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */ : wxString();
+    const wxSize   custom_mark_size = dc.GetTextExtent(custom_mark);
+    if (show_lan_remove)
+        text_end -= custom_mark_size.x + FromDIP(4);
+
     wxString finally_name =  dev_name;
     if (sizet.x > (text_end - left)) {
         auto limit_width = text_end - left - dc.GetTextExtent("...").x - 15;
@@ -203,8 +211,6 @@ void MachineObjectPanel::doRender(wxDC &dc)
     dc.DrawText(finally_name, wxPoint(left, (size.y - sizet.y) / 2));
 
 
-    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer
-    const bool show_lan_remove = m_show_bind && m_bind_state == ALLOW_UNBIND && m_info && m_info->is_lan_mode_printer();
     if (m_hover || m_is_macos_special_version || show_lan_remove) {
 
         if (m_hover && !m_is_macos_special_version) {
@@ -217,18 +223,17 @@ void MachineObjectPanel::doRender(wxDC &dc)
             if (m_bind_state == ALLOW_UNBIND) {
                 left = size.x - m_unbind_img.GetBmpSize().x - 6;
                 dc.DrawBitmap(m_unbind_img.bmp(), left, (size.y - m_unbind_img.GetBmpSize().y) / 2);
-                // Red underline marks a feature added by this fork
-                if (show_lan_remove) {
-                    int y = (size.y + m_unbind_img.GetBmpSize().y) / 2 + FromDIP(1);
-                    dc.SetPen(wxPen(wxColour(230, 0, 0), std::max(1, FromDIP(1))));
-                    dc.DrawLine(left, y, left + m_unbind_img.GetBmpSize().x, y);
-                }
             }
         }
 
         if (m_show_edit) {
             left = size.x - m_unbind_img.GetBmpSize().x - 6 - m_edit_name_img.GetBmpSize().x - 6;
             dc.DrawBitmap(m_edit_name_img.bmp(), left, (size.y - m_edit_name_img.GetBmpSize().y) / 2);
+        }
+
+        if (show_lan_remove) {
+            dc.SetTextForeground(wxColour(230, 0, 0));
+            dc.DrawText(custom_mark, left - FromDIP(4) - custom_mark_size.x, (size.y - custom_mark_size.y) / 2);
         }
     }
 

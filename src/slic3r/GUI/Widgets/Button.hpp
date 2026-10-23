@@ -27,6 +27,9 @@ class Button : public StaticBox
     // when true, the button can shrink and the label is truncated 
     // with an ellipsis (Chrome-style notebook tabs).
     bool m_allow_shrink = false;
+    // coloured character drawn left of the label, e.g. the mark of a feature changed by this fork
+    wxString m_label_mark;
+    wxColour m_label_mark_colour;
 
     wxTipWindow* tipWindow = nullptr;
 
@@ -81,6 +84,9 @@ public:
     void SetLeftCornerWhite(bool white = true) { m_left_corner_white = white; }
     void SetRightCornerWhite(bool white = true) { m_right_corner_white = white; }
 
+    // Coloured character drawn left of the label, e.g. the red circle marking a feature changed by this fork
+    void SetLabelMark(const wxString& mark, const wxColour& colour);
+
     bool IsGrayed() { return grayed; }
     void SetGrayed(bool gray) { grayed = gray; }
 
@@ -100,6 +106,8 @@ private:
     void renderWhiteCorners(wxDC &dc);
 
     void messureSize();
+    // width of the label mark plus its gap to the label, 0 without a mark
+    int  label_mark_width(wxDC& dc) const;
 
     // some useful events
     void mouseDown(wxMouseEvent& event);

@@ -493,10 +493,7 @@ export function FilamentManagerPage() {
                   disabled={!canUseLibrary}
                   onClick={handleOpenAddDialog}
                 >
-                  {/* Red underline marks a feature changed by this fork: the library works offline */}
-                  <span style={{ textDecoration: 'underline', textDecorationColor: 'rgb(230, 0, 0)', textUnderlineOffset: '3px' }}>
-                    {t('Add Filament')}
-                  </span>
+                  {t('Add Filament')}
                 </button>
               </div>
               </div>

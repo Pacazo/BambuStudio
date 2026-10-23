@@ -1596,6 +1596,8 @@ void MainFrame::init_tabpanel()
     if (!wxGetApp().is_fila_manager_disabled()) {
         m_web_device = new DeviceWebPage(m_tabpanel);
         m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
+        // The red circle marks a feature changed by this fork: the Filament Manager works offline
+        m_tabpanel->SetPageLabelMark(m_tabpanel->GetPageCount() - 1, wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */, wxColour(230, 0, 0));
     }
 
     if (m_plater) {

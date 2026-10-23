@@ -30,6 +30,7 @@ public:
     void SetPageText(size_t n, const wxString& strText);
     wxString GetPageText(size_t n) const;
     void SetPageToolTip(size_t n, const wxString& strToolTip);
+    void SetPageLabelMark(size_t n, const wxString& mark, const wxColour& colour);
 
 private:
     // BBS: use a box sizer so tabs can shrink (Chrome-style) when space is tight
@@ -247,6 +248,12 @@ public:
     void SetPageToolTip(size_t n, const wxString& strToolTip)
     {
         GetBtnsListCtrl()->SetPageToolTip(n, strToolTip);
+    }
+
+    // Coloured character left of the tab label, e.g. the red circle marking a page changed by this fork
+    void SetPageLabelMark(size_t n, const wxString& mark, const wxColour& colour)
+    {
+        GetBtnsListCtrl()->SetPageLabelMark(n, mark, colour);
     }
 
     // Override some wxWindow methods too.

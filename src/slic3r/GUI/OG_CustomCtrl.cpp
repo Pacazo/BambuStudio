@@ -34,7 +34,7 @@ static bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)
             rect.GetTop() <= pt.y && pt.y <= rect.GetBottom();
 }
 
-// Options added or exposed by this fork; their labels get a red square
+// Options added or exposed by this fork; their labels get a red circle
 static bool is_custom_option(const std::string& opt_id)
 {
     static const std::set<std::string> custom_options = {
@@ -51,13 +51,14 @@ static bool is_custom_option(const std::string& opt_id)
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;
 }
 
-// Marker drawn left of the label: red square for options of this fork, dark green circle for advanced options,
-// dark green square for options shown only in developer mode
+// Character drawn left of the label: red circle for options of this fork, dark green circle for options shown only
+// in developer mode, green circle for advanced options. Plain geometric shapes coloured as text: the bundled fonts have
+// them, while colour emoji are not drawn by wxDC.
 static const OG_CustomCtrl::LabelMarker* get_label_marker(const Option& opt)
 {
-    static const OG_CustomCtrl::LabelMarker custom_marker  { wxColour(230, 0, 0), true,  3, L("Custom parameter") };
-    static const OG_CustomCtrl::LabelMarker develop_marker { wxColour(0, 100, 0), true,  2, L("Developer mode parameter") };
-    static const OG_CustomCtrl::LabelMarker advanced_marker{ wxColour(0, 100, 0), false, 1, L("Advanced parameter") };
+    static const OG_CustomCtrl::LabelMarker custom_marker  { "\xE2\x97\x8F" /* U+25CF ● */, wxColour(230, 0, 0), 3, L("Custom parameter") };
+    static const OG_CustomCtrl::LabelMarker develop_marker { "\xE2\x97\x8F" /* U+25CF ● */, wxColour(0, 100, 0), 2, L("Developer mode parameter") };
+    static const OG_CustomCtrl::LabelMarker advanced_marker{ "\xE2\x97\x8F" /* U+25CF ● */, wxColour(0, 174, 66), 1, L("Advanced parameter") };
     if (is_custom_option(opt.opt_id))
         return &custom_marker;
     if (opt.opt.mode == comDevelop)
@@ -1605,10 +1606,12 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
 {
     // the marker takes room on the left of the label, inside the label width
     const wxCoord label_x = pos.x;
-    wxCoord marker_size = 0;
+    wxString      marker_symbol;
+    wxSize        marker_size;
     if (marker && !text.IsEmpty()) {
-        marker_size = dc.GetTextExtent("M").x;
-        pos.x += marker_size + ctrl->FromDIP(4);
+        marker_symbol = wxString::FromUTF8(marker->symbol);
+        marker_size   = dc.GetTextExtent(marker_symbol);
+        pos.x += marker_size.x + ctrl->FromDIP(4);
         if (width > 0)
             width = std::max(1, width - (pos.x - label_x));
     }
@@ -1627,6 +1630,15 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
         }
         if (width > 0)
             rect_label = wxRect(pos, wxSize(size.x, size.y));
+
+        if (!marker_symbol.IsEmpty()) {
+            // on the first text line, with the plain label font
+            const wxColour label_clr = dc.GetTextForeground();
+            dc.SetTextForeground(marker->colour);
+            dc.DrawText(marker_symbol, label_x, pos.y);
+            dc.SetTextForeground(label_clr);
+            rects_marker.emplace_back(wxRect(wxPoint(label_x, pos.y), marker_size), marker);
+        }
 
         wxColour old_clr = dc.GetTextForeground();
         wxFont old_font = dc.GetFont();
@@ -1647,22 +1659,6 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
             wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 #endif /* _WIN32 */
         dc.DrawText(out_text, pos);
-        if (marker_size > 0) {
-            // centred on the first text line
-            wxCoord line_height = dc.GetTextExtent("M").y;
-            wxRect  rect(label_x, pos.y + (line_height - marker_size) / 2, marker_size, marker_size);
-            wxPen   old_pen   = dc.GetPen();
-            wxBrush old_brush = dc.GetBrush();
-            dc.SetPen(wxPen(marker->colour));
-            dc.SetBrush(wxBrush(marker->colour));
-            if (marker->is_square)
-                dc.DrawRectangle(rect);
-            else
-                dc.DrawEllipse(rect);
-            dc.SetPen(old_pen);
-            dc.SetBrush(old_brush);
-            rects_marker.emplace_back(rect, marker);
-        }
         dc.SetTextForeground(old_clr);
         dc.SetFont(old_font);
 
