@@ -68,3 +68,29 @@ th.sort-desc .fm-sort-icon::after { content: "\2193"; opacity: 1; }
 /* AMS light-theme specific overrides */
 [data-theme="light"] .fm-ams-wrap-bg { background: #e8e8e8; }
 [data-theme="light"] .fm-slot-header-bg { background: #e0e0e0; color: #333; }
+
+/* ===== Bigger fonts (this fork) ===== */
+/* Every font size of the Filament Manager page, its dialogs and toasts (all rendered inside the page root) is
+   raised by about 2px, with the fixed line heights raised to match. Unlayered rules, so they win over the
+   Tailwind utilities. */
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[10px\] { font-size: 12px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[11px\] { font-size: 13px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-xs,
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[12px\] { font-size: 14px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[13px\] { font-size: 15px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-sm,
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[14px\] { font-size: 16px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[15px\] { font-size: 17px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-base { font-size: 18px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-xl { font-size: 23px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[28px\] { font-size: 32px; }
+
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-\[12px\] { line-height: 14px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-4,
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-\[16px\] { line-height: 19px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-\[18px\] { line-height: 21px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-\[19px\] { line-height: 22px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-5 { line-height: 23px; }
+:is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).leading-\[22px\] { line-height: 25px; }
+
+[data-testid="filament-page-root"] .fm-sort-icon::after { font-size: 12px; }

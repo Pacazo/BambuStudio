@@ -221,15 +221,52 @@ std::string wgtFilaManagerStore::get_storage_path() const
     return (fs::path(data_dir()) / "filament_inventory" / "spools.json").string();
 }
 
+// The Filament Manager of this fork is offline: the spools live only in this file, there is no cloud copy.
 void wgtFilaManagerStore::load()
 {
-    // local persistence removed — store starts empty, populated by cloud pull after login
+    const fs::path path(get_storage_path());
+    if (!fs::exists(path))
+        return;
+    try {
+        boost::nowide::ifstream in(path.string());
+        const nlohmann::json    arr = nlohmann::json::parse(in);
+        m_spools.clear();
+        for (const nlohmann::json& j : arr) {
+            FilamentSpool spool = FilamentSpool::from_json(j);
+            if (!spool.spool_id.empty())
+                m_spools[spool.spool_id] = std::move(spool);
+        }
+        m_dirty = false;
+        BOOST_LOG_TRIVIAL(info) << "[FilaManager] loaded " << m_spools.size() << " spools from " << path.string();
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "[FilaManager] failed to load " << path.string() << ": " << e.what();
+    }
 }
 
 void wgtFilaManagerStore::save()
 {
-    // local persistence removed
-    m_dirty = false;
+    const fs::path path(get_storage_path());
+    const fs::path tmp_path(path.string() + ".tmp");
+    try {
+        fs::create_directories(path.parent_path());
+        {
+            boost::nowide::ofstream out(tmp_path.string(), std::ios::trunc);
+            out << spools_to_json().dump(1);
+            if (!out)
+                throw std::runtime_error("write failed");
+        }
+        // write to a temporary file first so that a crash never leaves a truncated inventory
+        fs::rename(tmp_path, path);
+        m_dirty = false;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "[FilaManager] failed to save " << path.string() << ": " << e.what();
+    }
+}
+
+void wgtFilaManagerStore::set_dirty()
+{
+    m_dirty = true;
+    save();
 }
 
 // ---------- CRUD ----------
@@ -242,7 +279,7 @@ std::string wgtFilaManagerStore::add_spool(const FilamentSpool& spool)
     s.updated_at = now_iso8601();
     const std::string created_id = s.spool_id;
     m_spools[created_id] = std::move(s);
-    m_dirty = true;
+    set_dirty();
     return created_id;
 }
 
@@ -253,7 +290,7 @@ void wgtFilaManagerStore::update_spool(const FilamentSpool& spool)
     FilamentSpool s = spool;
     s.updated_at    = now_iso8601();
     it->second      = std::move(s);
-    m_dirty         = true;
+    set_dirty();
 }
 
 bool wgtFilaManagerStore::update_spool_if_changed(const FilamentSpool& sp)
@@ -291,7 +328,7 @@ bool wgtFilaManagerStore::update_spool_if_changed(const FilamentSpool& sp)
     cur.bound_dev_id   = sp.bound_dev_id;
     cur.bound_ams_id   = sp.bound_ams_id;
     cur.updated_at     = now_iso8601();
-    m_dirty            = true;
+    set_dirty();
     return true;
 }
 
@@ -331,14 +368,14 @@ bool wgtFilaManagerStore::apply_patch(const std::string& spool_id, const nlohman
 
     s.updated_at   = now_iso8601();
     s.cloud_synced = false;
-    m_dirty        = true;
+    set_dirty();
     return true;
 }
 
 void wgtFilaManagerStore::remove_spool(const std::string& spool_id)
 {
     m_spools.erase(spool_id);
-    m_dirty = true;
+    set_dirty();
 }
 
 bool wgtFilaManagerStore::mark_synced(const std::string& spool_id, bool synced)
@@ -347,7 +384,7 @@ bool wgtFilaManagerStore::mark_synced(const std::string& spool_id, bool synced)
     if (it == m_spools.end()) return false;
     if (it->second.cloud_synced == synced) return false;
     it->second.cloud_synced = synced;
-    m_dirty = true;
+    set_dirty();
     return true;
 }
 
@@ -531,6 +568,8 @@ bool wgtFilaManagerStore::apply_mount_diff(
             if (out_changed_ids) out_changed_ids->push_back(id);
         }
     }
+    if (changed)
+        set_dirty();
     return changed;
 }
 

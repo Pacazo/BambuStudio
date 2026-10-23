@@ -78,6 +78,10 @@ export function FilamentManagerPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const canBatchDelete = selected.size > 0;
   const isLoggedIn = cloudSync.logged_in;
+  // Offline Filament Manager (this fork): the spools are kept locally, so the page works without signing in
+  // and the cloud controls are hidden.
+  const isOffline = !!cloudSync.offline;
+  const canUseLibrary = isLoggedIn || isOffline;
 
   // Filter dropdown
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
@@ -136,7 +140,7 @@ export function FilamentManagerPage() {
       if (cancelled) return;
       void refreshAllFilamentLists();
       const { cloudSync: st } = useStore.getState().filament;
-      if (st.logged_in) {
+      if (st.logged_in && !st.offline) {
         await triggerCloudPull();
       }
     })();
@@ -144,14 +148,14 @@ export function FilamentManagerPage() {
   }, [fetchCloudSyncStatus, refreshAllFilamentLists, triggerCloudPull]);
 
   useEffect(() => {
-    if (isLoggedIn) return;
+    if (canUseLibrary) return;
     setSelected(new Set());
     setDetailOpen(false);
     setDetailSpool(null);
     setDialogOpen(false);
     setEditingSpool(null);
     setPrefilledSpool(null);
-  }, [isLoggedIn]);
+  }, [canUseLibrary]);
 
   // Apply theme
   useEffect(() => {
@@ -263,11 +267,11 @@ export function FilamentManagerPage() {
   }, []);
 
   const handleOpenAddDialog = useCallback(() => {
-    if (!isLoggedIn) return;
+    if (!canUseLibrary) return;
     setEditingSpool(null);
     setPrefilledSpool(null);
     setDialogOpen(true);
-  }, [isLoggedIn]);
+  }, [canUseLibrary]);
 
   const handleSubmitAdd = useCallback(async (data: Partial<Spool>, qty: number) => {
     if (qty > 1) return batchAddSpool(data, qty);
@@ -358,7 +362,7 @@ export function FilamentManagerPage() {
               <div className="flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-4">
                 {/* Tabs */}
-                <div className={`flex gap-2 ${!isLoggedIn ? 'opacity-40 pointer-events-none' : ''}`}>
+                <div className={`flex gap-2 ${!canUseLibrary ? 'opacity-40 pointer-events-none' : ''}`}>
                   {(['all', 'ams'] as const).map((tb) => (
                     <div
                       key={tb}
@@ -375,7 +379,7 @@ export function FilamentManagerPage() {
                 <div className="w-px h-[11px] bg-fm-border" />
 
                 {/* Filters */}
-                <div className={`flex gap-2 ${!isLoggedIn ? 'opacity-40 pointer-events-none' : ''}`}>
+                <div className={`flex gap-2 ${!canUseLibrary ? 'opacity-40 pointer-events-none' : ''}`}>
                   {(['brand', 'series'] as const).map((fk) => (
                     <div key={fk} style={{ position: 'relative' }}>
                       <div
@@ -408,7 +412,7 @@ export function FilamentManagerPage() {
               </div>
 
               <div className="flex items-center gap-4">
-                <div className={`flex items-center gap-1 bg-fm-inner2 rounded-md px-2 h-[30px] w-[200px] ${!isLoggedIn ? 'opacity-40' : ''}`}>
+                <div className={`flex items-center gap-1 bg-fm-inner2 rounded-md px-2 h-[30px] w-[200px] ${!canUseLibrary ? 'opacity-40' : ''}`}>
                   <svg className="text-fm-text-detail shrink-0" width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
                     <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.2" />
@@ -420,19 +424,20 @@ export function FilamentManagerPage() {
                     placeholder={t('Search Filament')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    disabled={!isLoggedIn}
+                    disabled={!canUseLibrary}
                   />
                 </div>
 
                 <button
                   data-testid="filament-group-toggle"
                   data-grouped={grouped ? 'true' : 'false'}
-                  className={`inline-flex items-center gap-1 h-[30px] px-3 rounded-lg border-none text-xs whitespace-nowrap transition-colors duration-150 bg-fm-inner text-fm-text-primary border border-fm-border-focus/50 hover:bg-fm-hover ${grouped ? '!bg-[rgba(44,173,0,0.08)] !border-fm-brand !text-[#50e81d]' : ''} ${!isLoggedIn ? 'opacity-40 cursor-not-allowed hover:bg-fm-inner' : 'cursor-pointer'}`}
+                  className={`inline-flex items-center gap-1 h-[30px] px-3 rounded-lg border-none text-xs whitespace-nowrap transition-colors duration-150 bg-fm-inner text-fm-text-primary border border-fm-border-focus/50 hover:bg-fm-hover ${grouped ? '!bg-[rgba(44,173,0,0.08)] !border-fm-brand !text-[#50e81d]' : ''} ${!canUseLibrary ? 'opacity-40 cursor-not-allowed hover:bg-fm-inner' : 'cursor-pointer'}`}
                   onClick={() => setGrouped(!grouped)}
-                  disabled={!isLoggedIn}
+                  disabled={!canUseLibrary}
                 >
                   {t('Group')}
                 </button>
+                {!isOffline && (<>
                 <CloudBadge
                   state={cloudSync}
                   onPullClick={handleCloudSyncClick}
@@ -477,17 +482,21 @@ export function FilamentManagerPage() {
                     <path d="M9 6v3.25L11 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
+                </>)}
                 <button
                   data-testid="filament-add"
                   className={`inline-flex items-center gap-1 h-[30px] px-3 rounded-lg border-none text-xs whitespace-nowrap transition-colors duration-150 font-medium ${
-                    isLoggedIn
+                    canUseLibrary
                       ? 'cursor-pointer bg-fm-brand text-white hover:bg-fm-brand-hover'
                       : 'cursor-not-allowed bg-fm-brand/40 text-white/70'
                   }`}
-                  disabled={!isLoggedIn}
+                  disabled={!canUseLibrary}
                   onClick={handleOpenAddDialog}
                 >
-                  {t('Add Filament')}
+                  {/* Red underline marks a feature changed by this fork: the library works offline */}
+                  <span style={{ textDecoration: 'underline', textDecorationColor: 'rgb(230, 0, 0)', textUnderlineOffset: '3px' }}>
+                    {t('Add Filament')}
+                  </span>
                 </button>
               </div>
               </div>
@@ -528,7 +537,7 @@ export function FilamentManagerPage() {
               {/* Table */}
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-fm-text-detail gap-4"><p>{t('Loading...')}</p></div>
-              ) : !isLoggedIn ? (
+              ) : !canUseLibrary ? (
                 <div data-testid="auth-signed-out" className="flex flex-col items-center justify-center py-20 text-center gap-3 rounded-lg border border-fm-border bg-fm-inner">
                   <p className="m-0 text-[15px] leading-[22px] text-fm-text-strong">{t('Not signed in — no data available')}</p>
                   <p className="m-0 text-xs leading-[19px] text-fm-text-detail">{t('Please sign in to view your filament library.')}</p>

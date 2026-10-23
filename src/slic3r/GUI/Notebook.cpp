@@ -121,6 +121,16 @@ void ButtonsListCtrl::OnPaint(wxPaintEvent&)
     dc.DrawRectangle(1, sz.y - m_line_margin, sz.x, m_line_margin);
 }
 
+// Labeled tabs may shrink to btn_width_label_min when crowded. Their max width fits the whole label (this fork):
+// "Filament Manager" was cut with an ellipsis at btn_width_label_max although the tab bar had room for it.
+static void set_label_tab_size(Button *btn, int em)
+{
+    btn->SetMinSize({btn_width_label_min * em / 10, btn_height * em / 10});
+    btn->SetMaxSize(wxDefaultSize);
+    const int max_width = std::max(btn_width_label_max * em / 10, btn->GetBestSize().GetWidth());
+    btn->SetMaxSize({max_width, btn_height * em / 10});
+}
+
 void ButtonsListCtrl::UpdateMode()
 {
     //m_mode_sizer->SetMode(Slic3r::GUI::wxGetApp().get_mode());
@@ -135,8 +145,7 @@ void ButtonsListCtrl::Rescale()
         if (btn->GetLabel().empty()) {
             btn->SetMinSize({btn_width_icon * em / 10, btn_height * em / 10});
         } else {
-            btn->SetMinSize({btn_width_label_min * em / 10, btn_height * em / 10});
-            btn->SetMaxSize({btn_width_label_max * em / 10, btn_height * em / 10});
+            set_label_tab_size(btn, em);
         }
         btn->Rescale();
     }
@@ -202,8 +211,7 @@ bool ButtonsListCtrl::InsertPage(size_t n, const wxString &text, bool bSelect /*
         btn->SetMinSize({btn_width_icon * em / 10, btn_height * em / 10});
     } else {
         btn->SetAllowShrink(true);
-        btn->SetMinSize({btn_width_label_min * em / 10, btn_height * em / 10});
-        btn->SetMaxSize({btn_width_label_max * em / 10, btn_height * em / 10});
+        set_label_tab_size(btn, em);
     }
 
     StateColor bg_color = StateColor(

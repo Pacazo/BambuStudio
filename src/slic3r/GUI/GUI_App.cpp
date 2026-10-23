@@ -3656,27 +3656,15 @@ bool GUI_App::on_init_inner()
         // Initialize Filament Manager store & sync
         if (!m_fila_manager_store) {
             m_fila_manager_store = new wgtFilaManagerStore();
+            m_fila_manager_store->load();
             BOOST_LOG_TRIVIAL(info) << "Filament Manager store initialized";
         }
         if (!m_fila_manager_sync) {
             m_fila_manager_sync = new wgtFilaManagerSync(m_fila_manager_store);
             BOOST_LOG_TRIVIAL(info) << "Filament Manager sync initialized";
         }
-        // Cloud layer — owns HTTP client, high-level sync and the serialization dispatcher.
-        if (!m_fila_manager_cloud_client) {
-            m_fila_manager_cloud_client = new wgtFilaManagerCloudClient();
-            BOOST_LOG_TRIVIAL(info) << "Filament Manager cloud client initialized";
-        }
-        if (!m_fila_manager_cloud_sync) {
-            m_fila_manager_cloud_sync = new wgtFilaManagerCloudSync(m_fila_manager_store,
-                                                                    m_fila_manager_cloud_client);
-            BOOST_LOG_TRIVIAL(info) << "Filament Manager cloud sync initialized";
-        }
-        if (!m_fila_manager_cloud_disp) {
-            m_fila_manager_cloud_disp = new wgtFilaManagerCloudDispatcher(m_fila_manager_cloud_sync,
-                                                                         m_fila_manager_cloud_client);
-            BOOST_LOG_TRIVIAL(info) << "Filament Manager cloud dispatcher initialized";
-        }
+        // The Filament Manager of this fork is offline: the cloud layer (HTTP client, cloud sync and dispatcher) is
+        // not created, so the spools stay in the local store and nothing is sent to the Bambu cloud.
     }
 
     BOOST_LOG_TRIVIAL(info) << "create the main window";

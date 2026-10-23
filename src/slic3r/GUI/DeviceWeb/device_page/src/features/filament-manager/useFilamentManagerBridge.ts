@@ -429,7 +429,10 @@ export function useFilamentManagerBridge() {
   const notifyCloudQueued = useCallback((op: 'create' | 'update' | 'delete', count: number) => {
     const state = useStore.getState().filament.cloudSync;
     const logged = !!state?.logged_in;
-    if (logged) {
+    if (state?.offline) {
+      // Offline Filament Manager (this fork): the change is already saved locally, nothing goes to the cloud
+      pushToast({ level: 'info', text: t('Saved.'), op });
+    } else if (logged) {
       const label =
         op === 'create' ? (count > 1
           ? t('Syncing {{count}} new filaments to cloud…', { count })
@@ -449,9 +452,12 @@ export function useFilamentManagerBridge() {
   }, [pushToast, t]);
 
   const notifyCloudWriteFailed = useCallback((op: 'create' | 'update' | 'delete') => {
+    const offline = !!useStore.getState().filament.cloudSync?.offline;
     pushToast({
       level: 'error',
-      text: t('Filament operation failed. This feature currently requires a network connection.'),
+      text: offline
+        ? t('Filament operation failed.')
+        : t('Filament operation failed. This feature currently requires a network connection.'),
       op,
     });
   }, [pushToast, t]);

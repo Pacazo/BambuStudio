@@ -152,7 +152,8 @@ public:
     std::vector<std::string> all_spool_ids() const;
 
     bool is_dirty() const { return m_dirty; }
-    void set_dirty()      { m_dirty = true; }
+    // Marks the inventory changed and saves it
+    void set_dirty();
     void clear_dirty()    { m_dirty = false; }
 
     nlohmann::json spools_to_json() const;

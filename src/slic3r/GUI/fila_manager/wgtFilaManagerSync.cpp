@@ -143,26 +143,30 @@ void wgtFilaManagerSync::check_and_register_new_rfid_spools(MachineObject* obj)
                 if (ver_it != ver_map.end()) sync_item.amsSn = ver_it->second.sn;
             }
 
-            BBL::AmsSyncParams params;
-            params.devId = obj->get_dev_id();
-            params.items.push_back(std::move(sync_item));
             m_pending_badges[obj->get_dev_id() + ":" + ams_id_key + ":" + slot_id_key] = uuid;
 
-            wgtFilaManagerCloudClient client;
-            client.sync_ams(std::move(params),
-                [this, uuid](const nlohmann::json&) {
-                    wxGetApp().CallAfter([this, uuid]() {
-                        m_auto_added_rfid_uuids.erase(uuid);
-                        if (auto* d = wxGetApp().fila_manager_cloud_disp())
-                            d->enqueue_pull();
-                    });
-                },
-                [uuid](int code, const std::string& err) {
-                    BOOST_LOG_TRIVIAL(warning)
-                        << "[auto_add_rfid] sync_ams failed uuid=" << uuid
-                        << " code=" << code << " err=" << err;
-                    // uuid stays in m_auto_added_rfid_uuids; no retry until reconnect
-                });
+            // The Filament Manager of this fork is offline: add the spool to the local store instead of sending it
+            // to the cloud, mapping the fields as for a spool pulled from the cloud. sync_all_trays() mounts it next.
+            const nlohmann::json item = {
+                {"RFID",           sync_item.RFID},
+                {"filamentVendor", sync_item.filamentVendor},
+                {"filamentType",   sync_item.filamentType},
+                {"filamentName",   sync_item.filamentName},
+                {"filamentId",     sync_item.filamentId},
+                {"color",          sync_item.color},
+                {"colorType",      sync_item.colorType},
+                {"colors",         sync_item.colors},
+                {"netWeight",      sync_item.netWeight},
+                {"totalNetWeight", sync_item.totalNetWeight},
+                {"trayIdName",     sync_item.trayIdName},
+                {"createType",     "ams"},
+            };
+            FilamentSpool spool = wgtFilaManagerCloudSync::cloud_json_to_spool(item);
+            spool.created_at.clear();
+            spool.updated_at.clear();
+            const std::string spool_id = m_store->add_spool(spool);
+            m_auto_added_rfid_uuids.erase(uuid);
+            BOOST_LOG_TRIVIAL(info) << "[auto_add_rfid] added spool " << spool_id << " for uuid=" << uuid;
         }
     }
 }

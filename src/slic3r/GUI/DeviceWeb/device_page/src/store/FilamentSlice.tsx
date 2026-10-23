@@ -10,6 +10,8 @@ import type {
 
 const DEFAULT_SYNC_STATE: CloudSyncState = {
   logged_in: false,
+  // Offline Filament Manager (this fork): no "not signed in" flash before init() returns
+  offline: true,
   is_syncing: false,
   is_pulling: false,
   last_synced_at: '',

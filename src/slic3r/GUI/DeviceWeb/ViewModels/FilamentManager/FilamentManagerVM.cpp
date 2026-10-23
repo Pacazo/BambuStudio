@@ -40,19 +40,15 @@ std::string wx_to_utf8(const wxString& value)
     return std::string(value.ToUTF8().data());
 }
 
-bool is_spool_cloud_write_action(const std::string& action)
+bool is_spool_write_action(const std::string& action)
 {
     return action == "add"
         || action == "batch_add"
+        // STUDIO-18344: AMS multi-select batch path.
         || action == "batch_create"
         || action == "update"
         || action == "remove"
         || action == "batch_remove";
-}
-
-bool can_write_spool_to_cloud(NetworkAgent* agent)
-{
-    return agent && agent->is_user_login() && agent->is_server_connected();
 }
 
 std::string normalize_ams_hex_for_web(const std::string& raw)
@@ -253,15 +249,15 @@ nlohmann::json FilamentManagerVM::HandleInit(const std::string& action, const nl
 
 nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const nlohmann::json& payload)
 {
+    // The Filament Manager of this fork is offline: every change is written to the local store, which saves
+    // itself; nothing is pushed to the cloud.
     auto* store = wxGetApp().fila_manager_store();
-    auto* disp  = wxGetApp().fila_manager_cloud_disp();
-    auto* agent = wxGetApp().getAgent();
 
     if (action == "list") {
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
-    if (is_spool_cloud_write_action(action) && (!store || !disp || !can_write_spool_to_cloud(agent))) {
-        return MakeResp("spool", action, -2, "cloud sync requires sign-in and network");
+    if (is_spool_write_action(action) && !store) {
+        return MakeResp("spool", action, -2, "filament manager store not ready");
     }
     if (action == "add") {
         publish_debug_log("data", "info", "HandleSpool add: enter",
@@ -279,10 +275,10 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
         }
         s.cloud_synced = false;
 
-        publish_debug_log("data", "info", "Spool create queued",
-                          "A new spool create request was queued for cloud",
-                          {{"action", "add"}});
-        if (disp) disp->enqueue_push_create(s);
+        const std::string created_id = store->add_spool(s);
+        publish_debug_log("data", "info", "Spool created",
+                          "A new spool was saved in the local store",
+                          {{"action", "add"}, {"spool_id", created_id}});
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -295,21 +291,36 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
             s.cloud_synced = false;
             new_spools.push_back(s);
         }
-        publish_debug_log("data", "info", "Spool batch create queued",
-                          "Multiple spool create requests were queued for cloud",
+        for (auto& spool : new_spools) store->add_spool(spool);
+        publish_debug_log("data", "info", "Spool batch created",
+                          "Multiple spools were saved in the local store",
                           {{"action", "batch_add"}, {"count", qty}});
-        if (disp) for (auto& spool : new_spools) disp->enqueue_push_create(spool);
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
     if (action == "batch_create") {
+        // STUDIO-18344: AMS multi-select batch path.
+        //
+        // Unlike `batch_add` (which expects a single `spool` + `quantity`),
+        // this action carries two distinct buckets:
+        //   - `creates[]`: each entry is a full FilamentSpool payload, added
+        //                  to the local store.
+        //   - `updates[]`: each entry carries an existing `spool_id` plus
+        //                  the AMS-derived patch, applied to that spool so it
+        //                  is overwritten in place rather than duplicated.
+        //
+        // The front-end has already partitioned the buckets by reverse-
+        // looking up tray.tag_uid against the local spool list, so we do
+        // not redo that decision here. Per-entry failures (malformed JSON,
+        // missing spool_id for an update) are logged and skipped so a
+        // single bad row cannot abort the rest of the batch.
         const nlohmann::json creates = payload.contains("creates") && payload["creates"].is_array()
                                            ? payload["creates"]
                                            : nlohmann::json::array();
         const nlohmann::json updates = payload.contains("updates") && payload["updates"].is_array()
                                            ? payload["updates"]
                                            : nlohmann::json::array();
-        publish_debug_log("data", "info", "Spool batch_create queued",
+        publish_debug_log("data", "info", "Spool batch_create received",
                           "Batch create/update request from AMS multi-select",
                           {{"action", "batch_create"},
                            {"creates", static_cast<int>(creates.size())},
@@ -320,7 +331,7 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
             try {
                 FilamentSpool s = FilamentSpool::from_json(entry);
                 s.cloud_synced = false;
-                if (disp) disp->enqueue_push_create(s);
+                store->add_spool(s);
                 ++created;
             } catch (const std::exception& e) {
                 publish_debug_log("data", "warn", "batch_create: create entry rejected",
@@ -339,30 +350,28 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
                                   {{"keys", static_cast<int>(entry.size())}});
                 continue;
             }
-            if (!store || store->get_spool(updated_id) == nullptr) {
+            if (store->get_spool(updated_id) == nullptr) {
                 publish_debug_log("data", "warn", "batch_create: target spool not found",
                                   "Local store has no record matching spool_id",
                                   {{"spool_id", updated_id}});
                 continue;
             }
-            if (disp) disp->enqueue_push_update(updated_id, entry);
+            store->apply_patch(updated_id, entry);
             ++updated;
         }
 
-        publish_debug_log("data", "info", "Spool batch_create accepted",
-                          "Enqueued create + update batch from AMS multi-select",
+        publish_debug_log("data", "info", "Spool batch_create applied",
+                          "Saved create + update batch from AMS multi-select",
                           {{"created", created}, {"updated", updated}});
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
     if (action == "update") {
         const std::string updated_id = payload.value("spool_id", "");
-        bool can_update = false;
-        if (store && !updated_id.empty()) {
-            can_update = store->get_spool(updated_id) != nullptr;
-            if (can_update) {
-                publish_debug_log("data", "info", "Spool update queued",
-                                  "A spool update request was queued for cloud",
+        if (!updated_id.empty()) {
+            if (store->apply_patch(updated_id, payload)) {
+                publish_debug_log("data", "info", "Spool updated",
+                                  "A spool change was saved in the local store",
                                   {{"action", "update"},
                                    {"spool_id", updated_id},
                                    {"patch_keys", static_cast<int>(payload.is_object() ?
@@ -373,18 +382,17 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
                                   {{"action", "update"}, {"spool_id", updated_id}});
             }
         }
-        if (disp && can_update) disp->enqueue_push_update(updated_id, payload);
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
     if (action == "remove") {
         std::string sid = payload.value("spool_id", "");
-        if (store && !sid.empty() && store->get_spool(sid)) {
-            publish_debug_log("data", "info", "Spool delete queued",
-                              "A spool delete request was queued for cloud",
+        if (!sid.empty() && store->get_spool(sid)) {
+            store->remove_spool(sid);
+            publish_debug_log("data", "info", "Spool deleted",
+                              "A spool was deleted from the local store",
                               {{"action", "remove"}, {"spool_id", sid}});
         }
-        if (disp && !sid.empty()) disp->enqueue_push_delete({sid});
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -393,14 +401,12 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
         if (payload.contains("spool_ids")) {
             for (auto& sid : payload["spool_ids"]) ids.push_back(sid.get<std::string>());
         }
-        if (store) {
-            publish_debug_log("data", "info", "Spool batch delete queued",
-                              "Multiple spool delete requests were queued for cloud",
-                              {{"action", "batch_remove"},
-                               {"count", static_cast<int>(ids.size())},
-                               {"spool_ids", ids}});
-        }
-        if (disp && !ids.empty()) disp->enqueue_push_delete(ids);
+        for (const auto& sid : ids) store->remove_spool(sid);
+        publish_debug_log("data", "info", "Spool batch deleted",
+                          "Multiple spools were deleted from the local store",
+                          {{"action", "batch_remove"},
+                           {"count", static_cast<int>(ids.size())},
+                           {"spool_ids", ids}});
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -419,7 +425,6 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
                                   {{"action", "mark_empty"}, {"spool_id", sid}});
             }
         }
-        if (disp && !sid.empty()) disp->enqueue_push_update(sid, nlohmann::json::object());
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -438,7 +443,6 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
                                   {{"action", "toggle_favorite"}, {"spool_id", sid}, {"favorite", u.favorite}});
             }
         }
-        if (disp && !sid.empty()) disp->enqueue_push_update(sid, nlohmann::json::object());
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -457,7 +461,6 @@ nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const n
                                   {{"action", "archive"}, {"spool_id", sid}});
             }
         }
-        if (disp && !sid.empty()) disp->enqueue_push_update(sid, nlohmann::json::object());
         publish_sync_state();
         return MakeResp("spool", action, 0, "", build_spool_list());
     }
@@ -677,6 +680,8 @@ nlohmann::json FilamentManagerVM::build_sync_state() const
     const bool   logged_in = agent && agent->is_user_login();
     nlohmann::json s;
     s["logged_in"]      = logged_in;
+    // The Filament Manager of this fork keeps the spools only locally: the web page must not require a sign-in
+    s["offline"]        = true;
     s["is_syncing"]     = disp ? disp->is_busy()        : false;
     s["is_pulling"]     = disp ? disp->is_pulling()     : false;
     s["last_synced_at"] = disp ? disp->last_synced_at() : std::string();
@@ -751,9 +756,6 @@ void FilamentManagerVM::publish_debug_log(const std::string& category,
 nlohmann::json FilamentManagerVM::build_spool_list()
 {
     auto* store = wxGetApp().fila_manager_store();
-    auto* agent = wxGetApp().getAgent();
-    if (!agent || !agent->is_user_login())
-        return nlohmann::json::array();
     nlohmann::json spools = store ? store->spools_to_json() : nlohmann::json::array();
     if (!spools.is_array()) return spools;
 
