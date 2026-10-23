@@ -817,6 +817,7 @@ namespace Slic3r {
             std::vector<ExtruderType> extruder_types;
             std::vector<double> nozzle_diameter;
             FilamentVariantRows filament_variant_rows;
+            int start_delay_min{ 0 }; // minutes to wait before the start G-code, not counted in the times
 
             TimeProcessContext(
                 const UsedFilaments& used_filaments_,
@@ -1248,6 +1249,7 @@ namespace Slic3r {
         bool m_detect_layer_based_on_tag {false};
         int m_seams_count;
         bool m_measure_g29_time {false};
+        int m_start_delay_min {0};
 #if ENABLE_GCODE_VIEWER_STATISTICS
         std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS

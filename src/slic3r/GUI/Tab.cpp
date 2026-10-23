@@ -3392,6 +3392,7 @@ void TabPrint::build()
     page = add_options_page(L("Others"), "advanced");
         optgroup = page->new_optgroup(L("General options"), L"advanced");
         optgroup->append_single_option_line("filament_grouping_mode");
+        optgroup->append_single_option_line("start_delay");
         optgroup->append_single_option_line("override_chamber_temperature");
         optgroup->append_single_option_line("chamber_temperature_override");
         optgroup->append_single_option_line("disable_chamber_cooling");

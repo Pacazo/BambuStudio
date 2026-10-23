@@ -6231,6 +6231,17 @@ void PrintConfigDef::init_fff_params()
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionInt(60));
 
+    def = this->add("start_delay", coInt);
+    def->label = L("Start delay");
+    def->tooltip = L("Minutes the printer waits before running the start G-code: nothing is heated, homed or calibrated "
+                     "until the delay is over. While waiting, the progress stays at 0% and the remaining time counts down "
+                     "the delay; the estimated print time does not include it. 0 starts the print immediately.");
+    def->sidetext = L("min");
+    def->min = 0;
+    def->max = 1440;
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionInt(0));
+
     def = this->add("farthest_point_timelapse", coBool);
     def->label = L("Farthest point timelapse");
     def->tooltip = L("When enabled, the timelapse snapshot is taken at the farthest point from camera "

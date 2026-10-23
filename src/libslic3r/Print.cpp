@@ -199,6 +199,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "disable_chamber_cooling",
         "override_bed_temperature",
         "bed_temperature_override",
+        "start_delay",
         "required_nozzle_HRC",
         "upward_compatible_machine",
         "is_infill_first",
