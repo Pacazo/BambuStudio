@@ -1017,7 +1017,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
     // Presses the object onto the interface only when it touches it: no Z gap to the support or raft (MinLineWidthOnInterface.hpp)
     toggle_field("min_line_width_on_interface",
                  (config->opt_bool("enable_support") && config->opt_float("support_top_z_distance") == 0) ||
-                 (have_raft && config->opt_float("raft_contact_distance") == 0));
+                 (have_raft && (config->opt_float("support_top_z_distance") == 0 ||
+                                config->opt_float("raft_contact_distance") == 0)));
     toggle_field("support_threshold_angle", have_support_material && is_auto(support_type));
     //toggle_field("support_closing_radius", have_support_material && support_style == smsSnug);
 

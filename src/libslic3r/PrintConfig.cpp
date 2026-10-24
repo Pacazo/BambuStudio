@@ -6368,7 +6368,7 @@ void PrintConfigDef::init_fff_params()
     def->category = L("Support");
     def->tooltip = L("Widens the walls and bottom surface printed on the interface to at least this width, pressing the filament "
                      "onto it for better adhesion. Only enabled without a Z gap: on supports when Top Z distance is 0, "
-                     "on a raft when Raft contact Z distance is 0. "
+                     "on a raft when Top Z distance or Raft contact Z distance is 0. "
                      "Percentage of the nozzle diameter, 0 to disable; 120% to 200% is recommended.");
     def->sidetext = "%";
     def->min = 0;
