@@ -552,17 +552,14 @@ void MachineObject::erase_user_access_dev_ip()
 bool MachineObject::is_auto_base_ip() const
 {
     AppConfig* config = GUI::wxGetApp().app_config;
-    return config && config->get("user_access_auto_base_ip", get_dev_id()) == "1";
+    // Enabled unless switched off explicitly
+    return !config || config->get("user_access_auto_base_ip", get_dev_id()) != "0";
 }
 
 void MachineObject::set_auto_base_ip(bool enable)
 {
     if (AppConfig* config = GUI::wxGetApp().app_config) {
-        if (enable) {
-            config->set_str("user_access_auto_base_ip", get_dev_id(), "1");
-        } else {
-            config->erase("user_access_auto_base_ip", get_dev_id());
-        }
+        config->set_str("user_access_auto_base_ip", get_dev_id(), enable ? "1" : "0");
     }
 }
 
@@ -4867,13 +4864,6 @@ void MachineObject::parse_new_info(json print)
         m_front_door_open = (get_flag_bits(stat, 23) == 1);
         m_lamp->SetLampCloseRecheck((get_flag_bits(stat, 36) == 1));
 
-        if (get_flag_bits(stat, 30) == 0) {
-            DeviceManager* device_manager = GUI::wxGetApp().getDeviceManager();
-            MachineObject* local_machine = device_manager ? device_manager->get_local_machine(get_dev_id()) : nullptr;
-            if (local_machine && local_machine->is_lan_mode_printer()) {
-                device_manager->remove_local_machine_for_cloud_mode(get_dev_id(), "cloud status push");
-            }
-        }
     }
 
     m_dev_info->ParseInfo(print);

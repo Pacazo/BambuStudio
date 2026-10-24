@@ -244,9 +244,11 @@ public:
     void record_user_access_dev_ip();
     void erase_user_access_dev_ip();
 
-    /* LAN: when the printer is not found, retry on the subnet of the Wi-Fi interface */
+    /* LAN: when the printer is not found, retry on the subnet of the Wi-Fi interface. Enabled by default */
     bool is_auto_base_ip() const;
     void set_auto_base_ip(bool enable);
+    /* LAN: the "incorrect access code" dialog was already shown since the last successful connection */
+    bool lan_access_denied_shown = false;
 
     //PRINTER_TYPE printer_type = PRINTER_3DPrinter_UKNOWN;
     std::string printer_type;       /* model_id */

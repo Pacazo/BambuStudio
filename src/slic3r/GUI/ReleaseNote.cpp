@@ -1849,10 +1849,16 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
                                          "network but keeps its last number.");
     auto m_auto_base_ip_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_auto_base_ip = new ::CheckBox(this);
+    m_auto_base_ip->SetValue(true);
     m_auto_base_ip->SetToolTip(auto_base_ip_tip);
     auto auto_base_ip_label = new Label(this, ::Label::Body_13, _L("Change base IP automatically"));
     auto_base_ip_label->SetToolTip(auto_base_ip_tip);
     auto_base_ip_label->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { m_auto_base_ip->SetValue(!m_auto_base_ip->GetValue()); });
+    // Red mark: option of this fork
+    auto auto_base_ip_mark = new Label(this, ::Label::Body_13, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
+    auto_base_ip_mark->SetForegroundColour(wxColour(230, 0, 0));
+    auto_base_ip_mark->SetToolTip(_L("Custom parameter"));
+    m_auto_base_ip_sizer->Add(auto_base_ip_mark, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
     m_auto_base_ip_sizer->Add(m_auto_base_ip, 0, wxALIGN_CENTER_VERTICAL, 0);
     m_auto_base_ip_sizer->Add(auto_base_ip_label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));
 

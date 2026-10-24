@@ -226,13 +226,11 @@ namespace Slic3r
             }
 
             /* update localMachineList */
-            bool remove_local_machine = false;
             it = localMachineList.find(dev_id);
             if (it != localMachineList.end()) {
                 // update properties
                 /* ip changed */
                 obj = it->second;
-                remove_local_machine = connect_type == "cloud" && obj->is_lan_mode_printer();
 
                 if (obj->get_dev_ip().compare(dev_ip) != 0) {
                     if ( connection_name.empty() ) {
@@ -338,12 +336,8 @@ namespace Slic3r
                                         << ", bind_state= " << bind_state;
             }
 
-            if (remove_local_machine) {
-                remove_local_machine_for_cloud_mode(dev_id, "SSDP");
-            } else if (obj && obj->is_cloud_mode_printer()) {
-                obj->erase_user_access_code();
-                obj->erase_user_access_dev_ip();
-            }
+            // A printer announcing cloud mode used to lose its saved LAN access code and IP here. Keep them: a
+            // saved printer is only forgotten with the remove button.
         }
         catch (...) {
             BOOST_LOG_TRIVIAL(warning) << current_exception_message();
@@ -430,7 +424,7 @@ namespace Slic3r
         if (!m_agent || !GUI::wxGetApp().app_config) return;
 
         AppConfig* config = GUI::wxGetApp().app_config;
-        if (!config->has_section("user_access_code") || !config->has_section("user_access_dev_ip")) return;
+        if (!config->has_section("user_access_dev_ip")) return;
 
         struct LocalAccessInfo
         {
@@ -441,14 +435,17 @@ namespace Slic3r
 
         std::vector<LocalAccessInfo> local_access_infos;
         const auto slicer_uuid = config->get("slicer_uuid");
-        const auto user_access_codes = config->get_section("user_access_code");
-        for (const auto& user_access_code : user_access_codes) {
-            const auto& dev_id = user_access_code.first;
-            const auto& access_code = user_access_code.second;
-            if (dev_id.empty() || access_code.empty() || get_local_machine(dev_id)) continue;
+        // Every printer with a saved IP is restored. The access code typed by the user comes first; the one saved on
+        // the last successful connection is the fallback, so a missing user_access_code entry no longer drops the printer.
+        const auto user_access_dev_ips = config->get_section("user_access_dev_ip");
+        for (const auto& user_access_dev_ip : user_access_dev_ips) {
+            const auto& dev_id = user_access_dev_ip.first;
+            const auto& encoded_dev_ip = user_access_dev_ip.second;
+            if (dev_id.empty() || encoded_dev_ip.empty() || get_local_machine(dev_id)) continue;
 
-            const auto encoded_dev_ip = config->get("user_access_dev_ip", dev_id);
-            if (encoded_dev_ip.empty()) continue;
+            std::string access_code = config->get("user_access_code", dev_id);
+            if (access_code.empty()) access_code = config->get("access_code", dev_id);
+            if (access_code.empty()) continue;
 
             const auto dev_ip = BBLCrossTalk::Decode_DevIp(encoded_dev_ip, slicer_uuid);
             if (dev_ip.empty()) {

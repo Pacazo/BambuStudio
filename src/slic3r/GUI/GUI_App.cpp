@@ -2239,7 +2239,10 @@ void GUI_App::init_networking_callbacks()
                     obj->command_request_push_all(true);
                     obj->command_get_version();
                     obj->command_set_sntp();
-                    obj->erase_user_access_code();
+                    // The access code of a LAN printer is the one the user typed; erasing it here lost it from the config
+                    // (and the printer at the next start) whenever the get_access_code reply did not arrive
+                    if (!obj->is_lan_mode_printer())
+                        obj->erase_user_access_code();
                     obj->command_get_access_code();
                     if (m_agent)
                         m_agent->install_device_cert(obj->get_dev_id(), obj->is_lan_mode_printer());
@@ -2287,16 +2290,23 @@ void GUI_App::init_networking_callbacks()
                                 event.SetString(obj->get_dev_id());
                                 obj->record_user_access_dev_ip();// only record access_dev_ip when lan mode
                                 GUI::wxGetApp().app_config->set_str("access_code", obj->get_dev_id(), obj->get_access_code());
+                                obj->lan_access_denied_shown = false;
                             } else if (state == ConnectStatus::ConnectStatusFailed) {
                                 wxString text;
                                 if (msg == "5") {
-                                    m_device_manager->erase_local_machine(obj->get_dev_id());
-                                    m_device_manager->set_selected_machine("");
-                                    obj->set_access_code("");
-                                    obj->erase_user_access_code();
-                                    obj->erase_user_access_dev_ip();
-                                    text = wxString::Format(_L("Incorrect password"));
-                                    wxGetApp().show_dialog(text);
+                                    // Access refused. It used to forget the printer (list entry, access code and IP), but
+                                    // it can also be refused by whatever now answers at the old address after a network
+                                    // change. Keep it listed as offline; only the remove button forgets a printer. Tell
+                                    // once, not on every automatic reconnection.
+                                    obj->set_online_state(false);
+                                    BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: access refused, keep the printer as offline";
+                                    if (!obj->lan_access_denied_shown) {
+                                        obj->lan_access_denied_shown = true;
+                                        text = wxString::Format(_L("Incorrect access code for the printer %s. It is kept in the device list; "
+                                                                   "to change the access code, remove it and add it again."),
+                                                                from_u8(obj->get_dev_name()));
+                                        wxGetApp().show_dialog(text);
+                                    }
                                 } else {
                                     // Not found: with "Change base IP automatically" the network may have changed, so
                                     // retry on the Wi-Fi subnet. The retried address is already on it, so a second failure
