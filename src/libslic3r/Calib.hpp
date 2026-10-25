@@ -5,6 +5,7 @@
 #include "GCodeWriter.hpp"
 #include "PrintConfig.hpp"
 #include "BoundingBox.hpp"
+#include "TriangleMesh.hpp"
 
 namespace Slic3r {
 
@@ -21,7 +22,8 @@ enum class CalibMode : int {
     Calib_Temp_Tower,
     Calib_Vol_speed_Tower,
     Calib_VFA_Tower,
-    Calib_Retraction_tower
+    Calib_Retraction_tower,
+    Calib_Ironing_Flow
 };
 
 enum class CalibState {
@@ -371,5 +373,11 @@ private:
     const double m_glyph_padding_horizontal{1};
     const double m_glyph_padding_vertical{1};
 };
+
+// Ironing flow calibration plate, 10 mm per step plus 5 mm at each end, 20 mm deep. The back 15 mm are the band ironed from
+// 5 mm to 5 mm before the right end, with the start and end flows engraved in the side strips. The front 5 mm hold a ruler
+// with a tick per step. base_z is the top of the base, ruler_z the top of the ruler ticks and top_z the top of the band.
+indexed_triangle_set ironing_flow_calib_mesh(int steps, double start_flow, double end_flow, double nozzle_diameter,
+                                             double base_z, double ruler_z, double top_z);
 
 } // namespace Slic3r

@@ -25340,6 +25340,77 @@ void Plater::calib_VFA(const Calib_Params &params)
     p->background_process.fff_print()->set_calib_params(params);
 }
 
+void Plater::calib_ironing_flow(const Calib_Params &params)
+{
+    model().calib_pa_pattern.reset(nullptr);
+
+    try {
+        json js;
+        js["cali_type"] = "third_cali_ironing_flow";
+        std::string filament_id = wxGetApp().preset_bundle->filaments.get_edited_preset().filament_id;
+        js["filament_id"]       = filament_id;
+
+        NetworkAgent *agent   = GUI::wxGetApp().getAgent();
+        if (agent) agent->track_event("third_cali", js.dump());
+    } catch (...) {}
+
+    // 10 mm per step plus 5 mm at each end, see ironing_flow_calib_mesh().
+    const int    steps  = std::max(1, int(std::lround(params.step)));
+    const double length = 10. * steps + 10.;
+    {
+        const auto        &printer_config = wxGetApp().preset_bundle->printers.get_edited_preset().config;
+        const BoundingBoxf bed            = get_extents(printer_config.option<ConfigOptionPoints>("printable_area")->values);
+        if (length > bed.size().x() - 10.) {
+            MessageDialog dlg(this, wxString::Format(_L("%d steps make a test %.0f mm long, which does not fit on the bed. Use at most %d steps."),
+                                                     steps, length, int((bed.size().x() - 20.) / 10.)),
+                              _L("Warning"), wxOK | wxICON_WARNING);
+            dlg.ShowModal();
+            return;
+        }
+    }
+
+    const auto calib_ironing_flow_name = wxString::Format(L"Ironing flow test");
+    if (new_project(false, false, calib_ironing_flow_name) == wxID_CANCEL)
+        return;
+    wxGetApp().mainframe->select_tab(size_t(MainFrame::tp3DEditor));
+    if (params.mode != CalibMode::Calib_Ironing_Flow) return;
+
+    // The test is printed with the 0.12 mm process preset of the current printer, preferring the system one.
+    constexpr double calib_layer_height = 0.12;
+    const Preset    *layer_preset       = nullptr;
+    for (const Preset &preset : wxGetApp().preset_bundle->prints.get_presets()) {
+        const auto *layer_height = preset.config.option<ConfigOptionFloat>("layer_height");
+        if (!preset.is_visible || !preset.is_compatible || !layer_height || std::abs(layer_height->value - calib_layer_height) > EPSILON)
+            continue;
+        if (!layer_preset || (preset.is_system && !layer_preset->is_system))
+            layer_preset = &preset;
+    }
+    bool layer_preset_selected = layer_preset && wxGetApp().get_tab(Preset::TYPE_PRINT)->select_preset(layer_preset->name);
+
+    auto print_config = &wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    if (!layer_preset_selected)
+        print_config->set_key_value("layer_height", new ConfigOptionFloat(calib_layer_height));
+    print_config->set_key_value("enable_wrapping_detection", new ConfigOptionBool(false));
+
+    // 2 base layers, 2 more layers with the ruler and 1 top layer, the only one ironed. The flows are engraved down to the base.
+    const double first_layer_height = print_config->option<ConfigOptionFloat>("initial_layer_print_height")->value;
+    const double layer_height       = print_config->option<ConfigOptionFloat>("layer_height")->value;
+    const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);
+    TriangleMesh mesh(ironing_flow_calib_mesh(steps, params.start, params.end, nozzle_diameter, first_layer_height + layer_height,
+                                              first_layer_height + 3. * layer_height, first_layer_height + 4. * layer_height));
+    sidebar().obj_list()->load_mesh_object(mesh, _L("Ironing flow test"), true);
+    auto obj = model().objects[0];
+    obj->config.set_key_value("ironing_type", new ConfigOptionEnum<IroningType>(IroningType::TopmostOnly));
+    obj->config.set_key_value("ironing_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
+    obj->config.set_key_value("ironing_flow", new ConfigOptionPercent(params.start));
+
+    changed_objects({0});
+    wxGetApp().get_tab(Preset::TYPE_PRINT)->update_dirty();
+    wxGetApp().get_tab(Preset::TYPE_PRINT)->reload_config();
+
+    p->background_process.fff_print()->set_calib_params(params);
+}
+
 void Plater::import_sl1_archive()
 {
     if (!p->m_ui_jobs.is_any_running())

@@ -2,6 +2,10 @@
 #include "Config.hpp"
 #include "Model.hpp"
 #include "GCode.hpp"
+#include "ClipperUtils.hpp"
+#include "Emboss.hpp"
+#include "LocalesUtils.hpp"
+#include "TriangleMesh.hpp"
 #include <cmath>
 
 
@@ -804,5 +808,155 @@ double CalibPressureAdvancePattern::max_numbering_height() const
 }
 
 double CalibPressureAdvancePattern::pattern_shift() const { return (wall_count() - 1) * line_spacing_first_layer() + line_width_first_layer() + m_glyph_padding_horizontal; }
-} // namespace Slic3r
+// Strokes of a glyph in the style of the pressure advance numbers, in a cell len wide and 2 * len high with the origin
+// at the bottom left. Dots are appended to dots as squares.
+static Polylines ironing_flow_glyph(char c, double len, double dot, Polygons &dots)
+{
+    //  0-------1
+    //  |       |
+    //  3-------2
+    //  |       |
+    //  4-------5
+    const Vec2d p0(0, 2 * len), p1(len, 2 * len), p2(len, len), p3(0, len), p4(0, 0), p5(len, 0);
+    const Vec2d p0_5(len / 2, 2 * len), p4_5(len / 2, 0);
+    auto line = [](std::initializer_list<Vec2d> pts) {
+        Polyline pl;
+        for (const Vec2d &p : pts)
+            pl.points.emplace_back(Point::new_scale(p));
+        return pl;
+    };
+    auto add_dot = [&dots, dot](const Vec2d &center) {
+        Polygon square;
+        for (const Vec2d &d : { Vec2d(-1, -1), Vec2d(1, -1), Vec2d(1, 1), Vec2d(-1, 1) })
+            square.points.emplace_back(Point::new_scale(Vec2d(center + d * (dot / 2))));
+        dots.emplace_back(std::move(square));
+    };
+    switch (c) {
+    case '0': return { line({ p0, p1, p5, p4, p0 }) };
+    case '1': return { line({ p0_5, p4_5 }) };
+    case '2': return { line({ p0, p1, p2, p3, p4, p5 }) };
+    case '3': return { line({ p0, p1, p5, p4 }), line({ p2, p3 }) };
+    case '4': return { line({ p0, p3, p2 }), line({ p1, p5 }) };
+    case '5': return { line({ p1, p0, p3, p2, p5, p4 }) };
+    case '6': return { line({ p1, p0, p4, p5, p2, p3 }) };
+    case '7': return { line({ p0, p1, p5 }) };
+    case '8': return { line({ p0, p1, p5, p4, p0 }), line({ p3, p2 }) };
+    case '9': return { line({ p5, p1, p0, p3, p2 }) };
+    case '.': add_dot(Vec2d(0, dot / 2)); return {};
+    case '%':
+        add_dot(Vec2d(0.2 * len, 1.7 * len));
+        add_dot(Vec2d(0.8 * len, 0.3 * len));
+        return { line({ p4, p1 }) };
+    default: return {};
+    }
+}
 
+// Text engraved along a side strip of the ironing flow calibration plate, reading towards +Y with the top of the
+// glyphs towards -X, centred at center_x, center_y and fitted into width x length.
+static ExPolygons ironing_flow_text(const std::string &text, double center_x, double center_y, double width, double length,
+                                    double stroke)
+{
+    double len = std::min(1.5, (width - stroke) / 2.);
+    auto   advance = [&len, stroke](char c) { return (c == '.' ? 0. : len) + 2 * stroke; };
+    double total = -stroke;
+    for (char c : text)
+        total += advance(c);
+    if (total > length) {
+        len *= (length + stroke - 2 * stroke * text.size()) / (total + stroke - 2 * stroke * text.size());
+        total = length;
+    }
+
+    Polylines strokes;
+    Polygons  dots;
+    double    u = center_y - total / 2. + stroke / 2.;
+    for (char c : text) {
+        Polygons  glyph_dots;
+        Polylines glyph = ironing_flow_glyph(c, len, stroke * 1.2, glyph_dots);
+        // Glyph cell (gx, gy) to the plate: x = center_x - (gy - len), y = u + gx.
+        auto place = [center_x, u, len](Point &p) {
+            const Vec2d g = unscale(p);
+            p = Point::new_scale(center_x - (g.y() - len), u + g.x());
+        };
+        for (Polyline &pl : glyph) {
+            for (Point &p : pl.points)
+                place(p);
+            strokes.emplace_back(std::move(pl));
+        }
+        for (Polygon &dot : glyph_dots) {
+            for (Point &p : dot.points)
+                place(p);
+            dot.make_counter_clockwise();
+            dots.emplace_back(std::move(dot));
+        }
+        u += advance(c);
+    }
+    Polygons shapes = offset(strokes, float(scale_(stroke / 2.)), ClipperLib::jtMiter, 3., ClipperLib::etOpenSquare);
+    append(shapes, std::move(dots));
+    return union_ex(shapes);
+}
+
+static std::string ironing_flow_label(double flow)
+{
+    std::string s = Slic3r::float_to_string_decimal_point(std::round(flow * 100.) / 100., 2);
+    if (s.find('.') != std::string::npos) {
+        s.erase(s.find_last_not_of('0') + 1);
+        if (s.back() == '.')
+            s.pop_back();
+    }
+    return s + "%";
+}
+
+// Prism of the shape from z0 to z1.
+static indexed_triangle_set ironing_flow_prism(const ExPolygons &shape, double z0, double z1)
+{
+    indexed_triangle_set its = Emboss::polygons2model(shape, Emboss::ProjectZ(scale_(z1 - z0)));
+    for (Vec3f &v : its.vertices)
+        v = Vec3f(float(unscale<double>(v.x())), float(unscale<double>(v.y())), float(unscale<double>(v.z()) + z0));
+    if (its_volume(its) < 0.f)
+        its_flip_triangles(its);
+    return its;
+}
+
+indexed_triangle_set ironing_flow_calib_mesh(int steps, double start_flow, double end_flow, double nozzle_diameter,
+                                             double base_z, double ruler_z, double top_z)
+{
+    const double length = 10. * steps + 10.;
+    auto rectangle = [](double x0, double y0, double x1, double y1) {
+        return ExPolygon(Polygon({ Point::new_scale(x0, y0), Point::new_scale(x1, y0), Point::new_scale(x1, y1), Point::new_scale(x0, y1) }));
+    };
+
+    // Ruler ticks in front of the band, long every second step, wide at the start, the middle and the end.
+    Polygons ticks;
+    for (int i = 0; i <= steps; ++i) {
+        const double x      = 5. + 10. * i;
+        const bool   wide   = i == 0 || i == steps || (steps % 2 == 0 && i == steps / 2);
+        const double r      = wide ? 1. : 0.5;
+        const double tip_y  = (i % 2 == 0 ? -10. : -8.5) + r;
+        Polygon tick;
+        tick.points.emplace_back(Point::new_scale(x + r, -4.9));
+        tick.points.emplace_back(Point::new_scale(x - r, -4.9));
+        const int arc = 16;
+        for (int k = 0; k <= arc; ++k) {
+            const double a = M_PI + M_PI * k / arc;
+            tick.points.emplace_back(Point::new_scale(x + r * std::cos(a), tip_y + r * std::sin(a)));
+        }
+        tick.make_counter_clockwise();
+        ticks.emplace_back(std::move(tick));
+    }
+
+    const ExPolygon band = rectangle(0., -5., length, 10.);
+    ExPolygons text = ironing_flow_text(ironing_flow_label(start_flow), 2.5, 2.5, 5. - 2. * std::max(0.6, nozzle_diameter), 15. - 1.2,
+                                        1.5 * nozzle_diameter);
+    append(text, ironing_flow_text(ironing_flow_label(end_flow), length - 2.5, 2.5, 5. - 2. * std::max(0.6, nozzle_diameter), 15. - 1.2,
+                                   1.5 * nozzle_diameter));
+
+    Polygons ruler = to_polygons(band);
+    append(ruler, std::move(ticks));
+
+    indexed_triangle_set its = ironing_flow_prism({ rectangle(0., -10., length, 10.) }, 0., base_z);
+    its_merge(its, ironing_flow_prism(diff_ex(union_(ruler), text), base_z, ruler_z));
+    its_merge(its, ironing_flow_prism(diff_ex(ExPolygons{ band }, text), ruler_z, top_z));
+    return its;
+}
+
+} // namespace Slic3r
