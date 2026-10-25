@@ -160,7 +160,7 @@ bool MachineObjectPanel::is_lan_remove_shown() const
 
 int MachineObjectPanel::lan_remove_mark_room()
 {
-    if (!is_lan_remove_shown())
+    if (!is_lan_remove_shown() || !wxGetApp().show_custom_marks())
         return 0;
     wxClientDC dc(this);
     dc.SetFont(Label::Body_13);
@@ -245,7 +245,7 @@ void MachineObjectPanel::doRender(wxDC &dc)
             dc.DrawBitmap(m_edit_name_img.bmp(), left, (size.y - m_edit_name_img.GetBmpSize().y) / 2);
         }
 
-        if (show_lan_remove) {
+        if (show_lan_remove && mark_room > 0) {
             const wxSize mark_size = dc.GetTextExtent(lan_remove_mark);
             dc.SetTextForeground(wxColour(230, 0, 0));
             dc.DrawText(lan_remove_mark, size.x - 6 - mark_size.x, (size.y - mark_size.y) / 2);

@@ -1044,6 +1044,9 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxWindow *pa
             wxGetApp().switch_staff_pick(pbool);
         }
 
+        if (param == "show_custom_marks")
+            wxGetApp().update_custom_marks();
+
         if (param == "show_bed_heat_soak_area") {
             if (wxGetApp().plater())
                 wxGetApp().plater()->on_show_bed_heat_soak_area_changed();
@@ -1463,6 +1466,16 @@ wxWindow *PreferencesDialog::create_general_tab()
     auto item_darkmode = create_item_darkmode_checkbox(_L("Enable dark mode"), scrolled, _L("Enable dark mode"), 50, "dark_color_mode");
 #endif
 
+    auto item_custom_marks = create_item_checkbox(_L("Show parameter marks"), scrolled,
+                                                  _L("Show a coloured circle left of the parameters: red for the custom parameters and features, dark green for "
+                                                     "the developer mode parameters and green for the advanced parameters."),
+                                                  50, "show_custom_marks");
+    // Red mark: option of this fork, always shown so that the marks can be found again when they are hidden
+    auto custom_marks_mark = new ::Label(scrolled, ::Label::Body_14, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
+    custom_marks_mark->SetForegroundColour(wxColour(230, 0, 0));
+    custom_marks_mark->SetToolTip(_L("Custom parameter"));
+    item_custom_marks->Insert(1, custom_marks_mark, wxSizerFlags().CenterVertical().Border(wxRIGHT, FromDIP(4)));
+
     std::vector<wxString>    FlushOptionLabels{_L("All related changes"), _L("When color changes"), _L("Turn off auto calculate")};
     std::vector<std::string> FlushOptionValues{"all", "color change", "disabled"};
     std::vector<wxString>    FlushOptionTooltips{_L("Auto calculate when color changes, type or configuration changes"), _L("Auto calculate when sync or modify filament colors"),
@@ -1519,6 +1532,7 @@ wxWindow *PreferencesDialog::create_general_tab()
     sizer->Add(wrap_option_row(scrolled, item_language), flags);
     sizer->Add(wrap_option_row(scrolled, item_region), flags);
     sizer->Add(wrap_option_row(scrolled, item_currency), flags);
+    sizer->Add(wrap_option_row(scrolled, item_custom_marks), flags);
     sizer->Add(wrap_option_row(scrolled, item_auto_flush), flags);
 #ifdef _WIN32
     sizer->Add(wrap_option_row(scrolled, item_darkmode), flags);

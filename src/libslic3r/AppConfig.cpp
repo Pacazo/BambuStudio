@@ -375,6 +375,11 @@ void AppConfig::set_defaults()
         set_bool("show_printable_box", true);
     }
 
+    // Coloured circles left of the custom, developer mode and advanced parameters
+    if (get("show_custom_marks").empty()) {
+        set_bool("show_custom_marks", true);
+    }
+
     if (get("units").empty()) {
          set("units", "0");
     }

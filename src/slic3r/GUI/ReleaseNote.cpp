@@ -1858,6 +1858,7 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     auto auto_base_ip_mark = new Label(this, ::Label::Body_13, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
     auto_base_ip_mark->SetForegroundColour(wxColour(230, 0, 0));
     auto_base_ip_mark->SetToolTip(_L("Custom parameter"));
+    auto_base_ip_mark->Show(wxGetApp().show_custom_marks());
     m_auto_base_ip_sizer->Add(auto_base_ip_mark, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
     m_auto_base_ip_sizer->Add(m_auto_base_ip, 0, wxALIGN_CENTER_VERTICAL, 0);
     m_auto_base_ip_sizer->Add(auto_base_ip_label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));

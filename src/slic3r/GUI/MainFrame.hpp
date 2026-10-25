@@ -326,6 +326,7 @@ public:
     void        show_log_window();
 
     void        update_ui_from_settings();
+    void        update_custom_marks();
     //BBS
     void        show_sync_dialog();
     void        update_side_preset_ui();
@@ -405,6 +406,7 @@ public:
     MaxVolumetricSpeed_Test_Dlg *m_vol_test_dlg{nullptr};
     VFA_Test_Dlg *               m_vfa_test_dlg{nullptr};
     IroningFlow_Test_Dlg *       m_ironing_flow_dlg{nullptr};
+    wxMenuItem *                 m_ironing_flow_menu_item{nullptr};
     Retraction_Test_Dlg *        m_retraction_calib_dlg{nullptr};
     SecondaryCheckDialog*        m_confirm_download_plugin_dlg{ nullptr };
 

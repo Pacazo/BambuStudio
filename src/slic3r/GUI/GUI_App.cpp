@@ -107,6 +107,7 @@
 #include "slic3r/Config/Snapshot.hpp"
 #include "Preferences.hpp"
 #include "Tab.hpp"
+#include "OG_CustomCtrl.hpp"
 #include "SysInfoDialog.hpp"
 #include "UpdateDialogs.hpp"
 #include "Mouse3DController.hpp"
@@ -4788,6 +4789,22 @@ void GUI_App::update_ui_from_settings()
     }
 
     if (mainframe) {mainframe->update_ui_from_settings();}
+}
+
+// Show or hide the marks after the preference changed. Windows created on demand check it when they are built.
+void GUI_App::update_custom_marks()
+{
+    if (mainframe)
+        mainframe->update_custom_marks();
+    // the option labels draw their marks when painted
+    std::function<void(wxWindow*)> refresh = [&refresh](wxWindow* win) {
+        if (dynamic_cast<OG_CustomCtrl*>(win))
+            win->Refresh();
+        for (wxWindow* child : win->GetChildren())
+            refresh(child);
+    };
+    for (wxWindowList::compatibility_iterator node = wxTopLevelWindows.GetFirst(); node != nullptr; node = node->GetNext())
+        refresh(node->GetData());
 }
 
 void GUI_App::persist_window_geometry(wxTopLevelWindow *window, bool default_maximized)

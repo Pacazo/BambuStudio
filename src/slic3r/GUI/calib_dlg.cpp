@@ -678,6 +678,14 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
     info_sizer->Add(custom_mark, 0, wxALL, FromDIP(2));
     info_sizer->Add(info_text, 0, wxALL, FromDIP(2));
     v_sizer->Add(info_sizer, 0, wxALL, FromDIP(5));
+    // MainFrame keeps this dialog: follow the preference every time it is shown
+    Bind(wxEVT_SHOW, [this, custom_mark](wxShowEvent& e) {
+        if (e.IsShown() && custom_mark->IsShown() != wxGetApp().show_custom_marks()) {
+            custom_mark->Show(wxGetApp().show_custom_marks());
+            Layout();
+        }
+        e.Skip();
+    });
 
     // Settings
     //

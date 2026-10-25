@@ -1596,9 +1596,8 @@ void MainFrame::init_tabpanel()
     if (!wxGetApp().is_fila_manager_disabled()) {
         m_web_device = new DeviceWebPage(m_tabpanel);
         m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
-        // The red circle marks a feature changed by this fork: the Filament Manager works offline
-        m_tabpanel->SetPageLabelMark(m_tabpanel->GetPageCount() - 1, wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */, wxColour(230, 0, 0));
     }
+    update_custom_marks();
 
     if (m_plater) {
         // load initial config
@@ -3755,12 +3754,12 @@ void MainFrame::init_menubar_as_editor()
                 m_retraction_calib_dlg->ShowModal();
             }, "", nullptr,
             [this]() {return m_plater->is_view3D_shown();; }, this);
-        append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Ironing flow"), _L("Ironing flow test"),
+        m_ironing_flow_menu_item = append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Ironing flow"), _L("Ironing flow test"),
             [this](wxCommandEvent&) {
                 if (!m_ironing_flow_dlg)
                     m_ironing_flow_dlg = new IroningFlow_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
                 m_ironing_flow_dlg->ShowModal();
-            }, "custom_mark", nullptr,
+            }, wxGetApp().show_custom_marks() ? "custom_mark" : "", nullptr,
             [this]() {return m_plater->is_view3D_shown();; }, this);
 
         // Advance calibrations
@@ -3895,13 +3894,13 @@ void MainFrame::init_menubar_as_editor()
         this);
 
     // Ironing flow
-    append_menu_item(
+    m_ironing_flow_menu_item = append_menu_item(
         m_calib_menu, wxID_ANY, _L("Ironing flow"), _L("Ironing flow test"),
         [this](wxCommandEvent &) {
             if (!m_ironing_flow_dlg) m_ironing_flow_dlg = new IroningFlow_Test_Dlg((wxWindow *) this, wxID_ANY, m_plater);
             m_ironing_flow_dlg->ShowModal();
         },
-        "custom_mark", nullptr,
+        wxGetApp().show_custom_marks() ? "custom_mark" : "", nullptr,
         [this]() {
             return m_plater->is_view3D_shown();
             ;
@@ -4886,6 +4885,26 @@ void MainFrame::update_ui_from_settings()
         m_plater->update_ui_from_settings();
     for (auto tab: wxGetApp().tabs_list)
         tab->update_ui_from_settings();
+}
+
+// Red circles of the features of this fork in the main window, shown or hidden after the preference
+void MainFrame::update_custom_marks()
+{
+    const bool show = wxGetApp().show_custom_marks();
+    // the Filament Manager works offline
+    if (m_web_device) {
+        const int page = m_tabpanel->FindPage(m_web_device);
+        if (page != wxNOT_FOUND)
+            m_tabpanel->SetPageLabelMark(page, show ? wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */ : wxString(), wxColour(230, 0, 0));
+    }
+    // Ironing flow calibration. wxGTK does not redraw the bitmap of an item already in a menu: insert it again.
+    if (m_ironing_flow_menu_item && m_ironing_flow_menu_item->GetBitmap().IsOk() != show) {
+        wxMenu*   menu = m_ironing_flow_menu_item->GetMenu();
+        const int pos  = menu->GetMenuItems().IndexOf(m_ironing_flow_menu_item);
+        menu->Remove(m_ironing_flow_menu_item);
+        m_ironing_flow_menu_item->SetBitmap(show ? create_menu_bitmap("custom_mark") : wxNullBitmap);
+        menu->Insert(pos, m_ironing_flow_menu_item);
+    }
 }
 
 

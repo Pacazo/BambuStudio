@@ -60,6 +60,8 @@ static const OG_CustomCtrl::LabelMarker* get_label_marker(const Option& opt)
     static const OG_CustomCtrl::LabelMarker custom_marker  { "\xE2\x97\x8F" /* U+25CF ● */, wxColour(230, 0, 0), 3, L("Custom parameter") };
     static const OG_CustomCtrl::LabelMarker develop_marker { "\xE2\x97\x8F" /* U+25CF ● */, wxColour(0, 100, 0), 2, L("Developer mode parameter") };
     static const OG_CustomCtrl::LabelMarker advanced_marker{ "\xE2\x97\x8F" /* U+25CF ● */, wxColour(0, 174, 66), 1, L("Advanced parameter") };
+    if (!wxGetApp().show_custom_marks())
+        return nullptr;
     if (is_custom_option(opt.opt_id))
         return &custom_marker;
     if (opt.opt.mode == comDevelop)

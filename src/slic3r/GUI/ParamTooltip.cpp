@@ -756,7 +756,8 @@ void ParamTooltip::Rebuild(const std::string &opt_key, const std::string &wiki_p
 
     // A curated store description replaces the def tooltip, so only a fallback to the def gets the mark
     const ParamTipEntry *stored      = ParamTipStore::get().find(opt_key);
-    const bool           custom_desc = !e.description.IsEmpty() && is_custom_tooltip(opt_key) && !(stored && !stored->description.IsEmpty());
+    const bool           custom_desc = !e.description.IsEmpty() && is_custom_tooltip(opt_key) && !(stored && !stored->description.IsEmpty()) &&
+                             wxGetApp().show_custom_marks();
     if (custom_desc) {
         m_desc_mark->SetForegroundColour(wxColour(230, 0, 0));
         m_desc_mark->SetBackgroundColour(p.card_bg);
