@@ -19,6 +19,8 @@
 #include "GUI_Factories.hpp"
 #include "libslic3r/Log.hpp"
 
+#include <wx/display.h>
+
 
 namespace Slic3r {
 namespace GUI {
@@ -660,6 +662,12 @@ void ParamsPanel::set_active_tab(wxPanel* tab)
     if (auto dialog = dynamic_cast<wxDialog*>(GetParent())) {
         wxString title = cur_tab->type() == Preset::TYPE_FILAMENT ? _L("Filament settings") : _L("Printer settings");
         dialog->SetTitle(title);
+        // Filament settings are 50% taller than printer settings, within the screen
+        const int height      = (cur_tab->type() == Preset::TYPE_FILAMENT ? 90 : 60) * em_unit(this);
+        const int display_idx = wxDisplay::GetFromWindow(dialog);
+        const int max_height  = wxDisplay(display_idx == wxNOT_FOUND ? 0u : unsigned(display_idx)).GetClientArea().GetHeight();
+        dialog->SetSize({75 * em_unit(this), std::min(height, max_height)});
+        dialog->Center();
     }
 }
 

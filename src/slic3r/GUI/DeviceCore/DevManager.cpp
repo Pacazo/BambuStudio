@@ -20,6 +20,7 @@
 #include "slic3r/Utils/BBLUtil.hpp"
 
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Time.hpp"
 
 #include <boost/thread.hpp>
@@ -69,6 +70,25 @@ namespace Slic3r
 #else
         return "";
 #endif
+    }
+
+    // A serial prefix can belong to several revisions of one model (the H2C is O1C and O1C2). Of the type guessed from it
+    // and its compatible types, take one with printer presets, which Sync and the print checks look for
+    static std::string printer_type_with_presets(const std::string& printer_type)
+    {
+        const PresetBundle* bundle = GUI::wxGetApp().preset_bundle;
+        if (!bundle || printer_type.empty()) return printer_type;
+
+        auto has_presets = [bundle](const std::string& type) {
+            for (const auto& vendor : bundle->vendors)
+                for (const auto& model : vendor.second.models)
+                    if (model.model_id == type) return true;
+            return false;
+        };
+        if (has_presets(printer_type)) return printer_type;
+        for (const std::string& type : DevPrinterConfigUtil::get_compatible_machine(printer_type))
+            if (has_presets(type)) return type;
+        return printer_type;
     }
 
     DeviceManager::DeviceManager(NetworkAgent* agent)
@@ -501,7 +521,7 @@ namespace Slic3r
                     detectData.dev_name     = local_access_info.dev_id;
                     detectData.connect_type = "lan";
                     detectData.bind_state   = "free";
-                    detectData.model_id     = DevPrinterConfigUtil::get_model_id_by_dev_id(local_access_info.dev_id);
+                    detectData.model_id     = printer_type_with_presets(DevPrinterConfigUtil::get_model_id_by_dev_id(local_access_info.dev_id));
                 }
 
                 const bool found = reject_reason == nullptr;

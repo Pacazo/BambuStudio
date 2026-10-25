@@ -2432,6 +2432,13 @@ bool SelectMachineDialog::is_same_printer_model()
     PresetBundle* preset_bundle = wxGetApp().preset_bundle;
     if (preset_bundle && preset_bundle->printers.get_edited_preset().get_printer_type(preset_bundle) != obj_->printer_type) {
 
+        // Revisions of one model have different ids (an H2C reports O1C or O1C2) and list each other as compatible
+        const std::vector<std::string> compatible_machine = obj_->get_compatible_machine();
+        if (std::find(compatible_machine.begin(), compatible_machine.end(),
+                      preset_bundle->printers.get_edited_preset().get_printer_type(preset_bundle)) != compatible_machine.end()) {
+            return true;
+        }
+
         if ((obj_->is_support_upgrade_kit && obj_->installed_upgrade_kit)
             && (preset_bundle->printers.get_edited_preset().get_printer_type(preset_bundle) == "C12")) {
             return true;
