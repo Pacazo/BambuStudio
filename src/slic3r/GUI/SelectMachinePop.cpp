@@ -887,17 +887,15 @@ void SelectMachinePopup::OnLeftUp(wxMouseEvent &event)
             }
         }
 
-        //pin code
-        auto pc_rect = m_panel_ping_code->ClientToScreen(wxPoint(0, 0));
-        if (mouse_pos.x > pc_rect.x && mouse_pos.y > pc_rect.y && mouse_pos.x < (pc_rect.x + m_panel_ping_code->GetSize().x) && mouse_pos.y < (pc_rect.y + m_panel_ping_code->GetSize().y)) {
-            wxGetApp().popup_ping_bind_dialog();
-        }
-
-        //bind with access code
-        auto dc_rect = m_panel_direct_connection->ClientToScreen(wxPoint(0, 0));
-        if (mouse_pos.x > dc_rect.x && mouse_pos.y > dc_rect.y && mouse_pos.x < (dc_rect.x + m_panel_direct_connection->GetSize().x) && mouse_pos.y < (dc_rect.y + m_panel_direct_connection->GetSize().y)) {
-            InputIpAddressDialog dlgo;
-            dlgo.ShowModal();
+        // pin code, bind with access code: forwarded like the machine panels, PinCodePanel opens the dialog
+        for (PinCodePanel* p : {m_panel_ping_code, m_panel_direct_connection}) {
+            auto p_rect = p->ClientToScreen(wxPoint(0, 0));
+            if (mouse_pos.x > p_rect.x && mouse_pos.y > p_rect.y && mouse_pos.x < (p_rect.x + p->GetSize().x) && mouse_pos.y < (p_rect.y + p->GetSize().y)) {
+                wxMouseEvent event(wxEVT_LEFT_UP);
+                event.SetPosition(p->ScreenToClient(mouse_pos));
+                event.SetEventObject(p);
+                wxPostEvent(p, event);
+            }
         }
 
         //hyper link
@@ -1111,6 +1109,15 @@ PinCodePanel::PinCodePanel(wxWindow* parent, int type, wxWindowID winid /*= wxID
 
  void PinCodePanel::on_mouse_left_up(wxMouseEvent& evt)
  {
+     // Close the device list first: the dialog takes its mouse grab, and the list then stayed above every window,
+     // the dialog included, until the application lost the focus
+     for (wxWindow* win = GetParent(); win != nullptr; win = win->GetParent()) {
+         if (auto popup = dynamic_cast<PopupWindow*>(win)) {
+             popup->DismissAndNotify();
+             break;
+         }
+     }
+
      if (m_type == 0) {
         if (wxGetApp().getAgent() && wxGetApp().getAgent()->is_user_login()){
              wxGetApp().popup_ping_bind_dialog();

@@ -33,6 +33,7 @@
 #include <wx/msw/wrapwin.h>
 #endif
 
+#include <set>
 #include <unordered_map>
 
 namespace Slic3r::GUI {
@@ -96,6 +97,28 @@ constexpr int HIDE_DELAY_MS = 100;
 // marker, not a sizer spacer, so the text column sits exactly one space after the bullet the way a
 // rendered markdown list does, measured in the details font at whatever the current DPI is.
 const wxString BULLET_MARKER = "* ";
+
+// Red circle prefixed to the description when this fork wrote the tooltip: the same mark and colour as
+// the labels of its options (OG_CustomCtrl). The trailing space is part of the mark, as in BULLET_MARKER.
+const wxString CUSTOM_TOOLTIP_MARK = wxString::FromUTF8("\xE2\x97\x8F "); // U+25CF
+
+// Options whose ConfigOptionDef tooltip was written by this fork
+bool is_custom_tooltip(const std::string &opt_key)
+{
+    static const std::set<std::string> custom_tooltips = {
+        "bed_temperature_override", "chamber_temperature_override", "default_filament_colour", "default_jerk", "disable_chamber_cooling",
+        "enable_wrapping_detection", "extruder_printable_area", "filament_adhesiveness_category", "filament_grouping_mode",
+        "first_layer_sequence_choice", "impact_strength_z", "infill_jerk", "initial_layer_jerk", "inner_wall_jerk", "inner_wall_speed",
+        "interlocking_orientation", "ironing_pattern", "locked_skeleton_infill_pattern", "locked_skin_infill_pattern",
+        "long_retractions_when_ec", "machine_hotend_change_time", "min_line_width_on_interface", "nozzle_diameter",
+        "other_layers_sequence_choice", "outer_wall_jerk", "override_bed_temperature", "override_chamber_temperature",
+        "prime_tower_infill_gap", "retraction_distances_when_ec", "retraction_speed", "slowdown_end_acc", "slowdown_end_speed",
+        "slowdown_start_acc", "slowdown_start_speed", "start_delay", "support_base_pattern", "support_base_pattern_spacing",
+        "support_interface_speed", "support_ironing_pattern", "support_line_width", "support_speed", "time_lapse_gcode", "top_surface_jerk",
+        "travel_jerk", "wall_filament", "wrapping_detection_gcode", "z_hop_types",
+    };
+    return custom_tooltips.count(opt_key) > 0;
+}
 
 // Copy-icon "copied!" feedback: crossfade to a check mark, hold, crossfade back.
 constexpr int COPY_ICON_PX    = 14;  // icon side length (DIP)
@@ -650,9 +673,15 @@ void ParamTooltip::build_layout()
     m_divider = new wxWindow(this, wxID_ANY, wxDefaultPosition, wxSize(-1, FromDIP(1)));
     col->Add(m_divider, 0, wxEXPAND | wxTOP, FromDIP(GAP));
 
+    // [mark][description]: the mark sits on the first line and the wrapped lines hang under the text.
+    m_desc_mark = new Label(this, Label::Body_13, CUSTOM_TOOLTIP_MARK);
+    m_desc_mark->SetFont(Label::Body_13);
     m_desc = new Label(this, Label::Body_13, wxEmptyString);
     m_desc->SetFont(Label::Body_13);
-    col->Add(m_desc, 0, wxTOP, FromDIP(GAP));
+    wxBoxSizer *desc_row = new wxBoxSizer(wxHORIZONTAL);
+    desc_row->Add(m_desc_mark, 0, wxALIGN_TOP);
+    desc_row->Add(m_desc, 0);
+    col->Add(desc_row, 0, wxTOP, FromDIP(GAP));
 
     m_image = new wxStaticBitmap(this, wxID_ANY, wxNullBitmap);
     col->Add(m_image, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, FromDIP(GAP));
@@ -725,7 +754,15 @@ void ParamTooltip::Rebuild(const std::string &opt_key, const std::string &wiki_p
 
     m_divider->SetBackgroundColour(p.divider);
 
-    set_row(sizer, m_desc, e.description, p.description, p.card_bg, wrap);
+    // A curated store description replaces the def tooltip, so only a fallback to the def gets the mark
+    const ParamTipEntry *stored      = ParamTipStore::get().find(opt_key);
+    const bool           custom_desc = !e.description.IsEmpty() && is_custom_tooltip(opt_key) && !(stored && !stored->description.IsEmpty());
+    if (custom_desc) {
+        m_desc_mark->SetForegroundColour(wxColour(230, 0, 0));
+        m_desc_mark->SetBackgroundColour(p.card_bg);
+    }
+    sizer->Show(m_desc_mark, custom_desc, true);
+    set_row(sizer, m_desc, e.description, p.description, p.card_bg, custom_desc ? wrap - m_desc_mark->GetBestSize().GetWidth() : wrap);
 
     const wxBitmap bmp = e.image.empty() ? wxBitmap() : LoadImage(e.image, dark);
     if (bmp.IsOk()) m_image->SetBitmap(bmp);
@@ -963,6 +1000,7 @@ void ParamTooltip::DoHide(bool now)
 {
     if (now) {
         m_hide = true;
+        m_timer->Stop(); // a pending show would bring it back
         wxPopupWindow::Hide();
         update_shadow(false);
         return;
@@ -1037,6 +1075,11 @@ wxString ParamTooltip::ItemTooltip(const std::string &opt_key, const std::string
 void ParamTooltip::Hide()
 {
     if (s_self) s_self->DoHide(false);
+}
+
+void ParamTooltip::HideNow()
+{
+    if (s_self) s_self->DoHide(true);
 }
 
 void ParamTooltip::Shutdown()

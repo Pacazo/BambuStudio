@@ -141,6 +141,7 @@
 #include "HintNotification.hpp"
 #include "BBLUtil.hpp"
 #include "fila_manager/wgtFilaManagerFeature.h"
+#include "ParamTooltip.hpp"
 
 //#ifdef WIN32
 //#include "BaseException.h"
@@ -3609,6 +3610,23 @@ bool GUI_App::on_init_inner()
     Bind(EVT_CHECK_PRIVACY_SHOW, &GUI_App::show_check_privacy_dlg, this);
 
     Bind(EVT_SHOW_IP_DIALOG, &GUI_App::show_ip_address_enter_dialog_handler, this);
+
+    // close the tooltips when the application loses the focus
+    Bind(wxEVT_ACTIVATE_APP, [](wxActivateEvent& event) {
+        if (!event.GetActive()) {
+            ParamTooltip::HideNow();
+#if defined(__WXGTK20__) || defined(__WXGTK3__)
+            GList* toplevels = gtk_window_list_toplevels();
+            for (GList* it = toplevels; it != nullptr; it = it->next) {
+                GtkWindow* window = GTK_WINDOW(it->data);
+                if (gtk_widget_get_visible(GTK_WIDGET(window)) && gtk_window_get_type_hint(window) == GDK_WINDOW_TYPE_HINT_TOOLTIP)
+                    gtk_widget_hide(GTK_WIDGET(window));
+            }
+            g_list_free(toplevels);
+#endif
+        }
+        event.Skip();
+    });
 
 
     std::map<std::string, std::string> extra_headers = get_extra_header();

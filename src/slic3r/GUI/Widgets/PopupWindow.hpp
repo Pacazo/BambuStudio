@@ -15,6 +15,9 @@ public:
     PopupWindow(wxWindow *parent, int style = wxBORDER_NONE) { Create(parent, style); }
 
     bool Create(wxWindow *parent, int flags = wxBORDER_NONE);
+
+    // Dismiss as a click outside would, OnDismiss() included
+    using wxPopupTransientWindow::DismissAndNotify;
 #ifdef __WXMSW__
     void BindUnfocusEvent();
 #endif

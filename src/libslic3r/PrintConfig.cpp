@@ -1545,6 +1545,7 @@ void PrintConfigDef::init_common_params()
 
     def = this->add("extruder_printable_area", coPointsGroups);
     def->label = L("Extruder printable area");
+    def->tooltip = L("Area of the plate this extruder can reach.");
     def->mode = comAdvanced;
     def->gui_type = ConfigOptionDef::GUIType::one_string;
     def->set_default_value(new ConfigOptionPointsGroups{});
@@ -1888,6 +1889,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("first_layer_sequence_choice", coEnum);
     def->category = L("Quality");
     def->label = L("First layer filament sequence");
+    def->tooltip = L("Order in which the filaments are printed on the first layer: automatic or custom.");
     def->enum_keys_map = &ConfigOptionEnum<LayerSeq>::get_enum_values();
     def->enum_values.push_back("Auto");
     def->enum_values.push_back("Customize");
@@ -1899,6 +1901,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("other_layers_sequence_choice", coEnum);
     def->category = L("Quality");
     def->label = L("Other layers filament sequence");
+    def->tooltip = L("Order in which the filaments are printed on the layers above the first: automatic or custom.");
     def->enum_keys_map = &ConfigOptionEnum<LayerSeq>::get_enum_values();
     def->enum_values.push_back("Auto");
     def->enum_values.push_back("Customize");
@@ -2194,6 +2197,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("slowdown_start_speed", coFloats);
     def->label = L("Speed at starting height");
+    def->tooltip = L("Speed limit for printing and travel at the starting height. Between both heights it changes linearly toward the speed at the ending height.");
     def->category = L("Speed");
     def->sidetext = L("mm/s");
     def->min = 0;
@@ -2203,6 +2207,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("slowdown_start_acc", coFloats);
     def->label = L("Acceleration at starting height");
+    def->tooltip = L("Acceleration limit at the starting height. Between both heights it changes linearly toward the acceleration at the ending height.");
     def->category = L("Speed");
     def->sidetext = L("mm/s²");
     def->min = 0;
@@ -2223,6 +2228,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("slowdown_end_speed", coFloats);
     def->label = L("Speed at ending height");
+    def->tooltip = L("Speed limit for printing and travel at the ending height and above.");
     def->category = L("Speed");
     def->sidetext = L("mm/s");
     def->min = 0;
@@ -2232,6 +2238,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("slowdown_end_acc", coFloats);
     def->label = L("Acceleration at ending height");
+    def->tooltip = L("Acceleration limit at the ending height and above.");
     def->category = L("Speed");
     def->sidetext = L("mm/s²");
     def->min = 0;
@@ -2984,7 +2991,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("default_filament_colour", coStrings);
     def->label    = L("Default color");
-    def->tooltip  = L("Default filament color");
+    def->tooltip  = L("Color shown for this filament preset in the preset lists.");
     def->gui_type = ConfigOptionDef::GUIType::color;
     def->mode     = comAdvanced;
     def->set_default_value(new ConfigOptionStrings{""});
@@ -3217,7 +3224,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("machine_hotend_change_time", coFloat);
     def->label    = L("Hotend change time");
-    def->tooltip  = L("Time to change hotend.");
+    def->tooltip  = L("Time the printer takes to change the hotend, added to the print time estimate.");
     def->sidetext = L("s");
     def->min      = 0;
     def->mode     = comAdvanced;
@@ -3310,7 +3317,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("filament_adhesiveness_category", coInts);
     def->label    = L("Adhesiveness Category");
-    def->tooltip  = L("Filament category");
+    def->tooltip  = L("Filaments of different categories are purged in separate blocks of the prime tower.");
     def->min      = 0;
     def->mode     = comDevelop;
     def->set_default_value(new ConfigOptionInts{0});
@@ -3793,7 +3800,7 @@ void PrintConfigDef::init_fff_params()
     def                = this->add("locked_skin_infill_pattern", coEnum);
     def->label         = L("Skin infill pattern");
     def->category      = L("Strength");
-    def->tooltip       = L("Line pattern for skin");
+    def->tooltip       = L("Pattern of the skin, the outer part of the Locked Zag infill.");
     def->enum_keys_map = &ConfigOptionEnum<InfillPattern>::get_enum_values();
     def->enum_values.push_back("concentric");
     def->enum_values.push_back("zig-zag");
@@ -3834,7 +3841,7 @@ void PrintConfigDef::init_fff_params()
     def                = this->add("locked_skeleton_infill_pattern", coEnum);
     def->label         = L("Skeleton infill pattern");
     def->category      = L("Strength");
-    def->tooltip       = L("Line pattern for skeleton");
+    def->tooltip       = L("Pattern of the skeleton, the inner part of the Locked Zag infill.");
     def->enum_keys_map = &ConfigOptionEnum<InfillPattern>::get_enum_values();
     def->enum_values.push_back("concentric");
     def->enum_values.push_back("zig-zag");
@@ -3935,7 +3942,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("default_jerk", coFloat);
     def->label = L("Default");
-    def->tooltip = L("Default jerk");
+    def->tooltip = L("Jerk used where no specific jerk is set. 0 keeps the printer's own jerk.");
     def->sidetext = L("mm/s");
     def->min = 0;
     def->mode = comAdvanced;
@@ -3943,7 +3950,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("outer_wall_jerk", coFloat);
     def->label = L("Outer wall");
-    def->tooltip = L("Jerk of outer walls");
+    def->tooltip = L("Maximum instantaneous speed change on outer walls.");
     def->sidetext = L("mm/s");
     def->min = 0;
     def->mode = comAdvanced;
@@ -3951,7 +3958,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("inner_wall_jerk", coFloat);
     def->label = L("Inner wall");
-    def->tooltip = L("Jerk of inner walls");
+    def->tooltip = L("Maximum instantaneous speed change on inner walls.");
     def->sidetext = L("mm/s");
     def->min = 0;
     def->mode = comAdvanced;
@@ -3959,7 +3966,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("infill_jerk", coFloat);
     def->label = L("Infill");
-    def->tooltip = L("Jerk of infill");
+    def->tooltip = L("Maximum instantaneous speed change on infill.");
     def->sidetext = L("mm/s");
     def->min = 0;
     def->mode = comAdvanced;
@@ -3967,7 +3974,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("top_surface_jerk", coFloat);
     def->label    = L("Top surface");
-    def->tooltip  = L("Jerk of top surface");
+    def->tooltip  = L("Maximum instantaneous speed change on top surfaces.");
     def->sidetext = L("mm/s");
     def->min      = 0;
     def->mode     = comAdvanced;
@@ -3975,7 +3982,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("initial_layer_jerk", coFloat);
     def->label    = L("First layer");
-    def->tooltip  = L("Jerk of first layer");
+    def->tooltip  = L("Maximum instantaneous speed change on the first layer.");
     def->sidetext = L("mm/s");
     def->min      = 0;
     def->mode     = comAdvanced;
@@ -3983,7 +3990,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("travel_jerk", coFloat);
     def->label    = L("Travel");
-    def->tooltip  = L("Jerk of travel");
+    def->tooltip  = L("Maximum instantaneous speed change on travel moves.");
     def->sidetext = L("mm/s");
     def->min      = 0;
     def->mode     = comAdvanced;
@@ -4244,7 +4251,7 @@ void PrintConfigDef::init_fff_params()
     // BBS
     def          = this->add("enable_wrapping_detection", coBool);
     def->label   = L("Enable clumping detection");
-    def->tooltip = L("Enable clumping detection");
+    def->tooltip = L("Probe the nozzle on some layers to detect filament clumped around it.");
     def->mode    = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -4788,7 +4795,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("interlocking_orientation", coFloat);
     def->label    = L("Interlocking direction");
-    def->tooltip  = L("Orientation of interlock beams.");
+    def->tooltip  = L("Angle of the interlocking beams in the XY plane.");
     def->sidetext = L("°");
     def->min      = 0;
     def->max      = 360;
@@ -4839,6 +4846,7 @@ void PrintConfigDef::init_fff_params()
 
     def                = this->add("ironing_pattern", coEnum);
     def->label         = L("Ironing Pattern");
+    def->tooltip       = L("Path the nozzle follows when ironing.");
     def->category      = L("Quality");
     def->enum_keys_map = &ConfigOptionEnum<InfillPattern>::get_enum_values();
     def->enum_values.push_back("concentric");
@@ -4912,6 +4920,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("time_lapse_gcode",coString);
     def->label = L("Time lapse G-code");
+    def->tooltip = L("G-code inserted at each layer change to take the timelapse photo.");
     def->multiline = true;
     def->full_width = true;
     def->height =5;
@@ -4920,6 +4929,7 @@ void PrintConfigDef::init_fff_params()
 
     def             = this->add("wrapping_detection_gcode", coString);
     def->label      = L("Clumping detection G-code");
+    def->tooltip    = L("G-code inserted on each layer when clumping detection is enabled. It decides on which layers the nozzle is probed.");
     def->multiline  = true;
     def->full_width = true;
     def->height     = 5;
@@ -5230,7 +5240,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("nozzle_diameter", coFloats);
     def->label = L("Nozzle diameter");
-    def->tooltip = L("Diameter of nozzle");
+    def->tooltip = L("Diameter of the nozzle orifice.");
     def->sidetext = L("mm");
     def->mode = comAdvanced;
     def->max = 1.0;
@@ -5341,7 +5351,7 @@ void PrintConfigDef::init_fff_params()
     def->gui_type = ConfigOptionDef::GUIType::i_enum_open;
     def->label = L("Walls filament");
     def->category = L("Extruders");
-    def->tooltip = L("Filament to print walls");
+    def->tooltip = L("Filament that prints the inner and outer walls.");
     def->min = 0;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionInt(0));
@@ -5359,7 +5369,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("inner_wall_speed", coFloats);
     def->label = L("Inner wall");
     def->category = L("Speed");
-    def->tooltip = L("Speed of inner wall");
+    def->tooltip = L("Speed of the walls inside the outer wall.");
     def->sidetext = L("mm/s");
     def->aliases = { "perimeter_feed_rate" };
     def->min = 0;
@@ -5579,12 +5589,14 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("long_retractions_when_ec", coBools);
     def->label = L("Long retraction when extruder change");
+    def->tooltip = L("Pull this filament back further when the printer switches to the other extruder, so the parked nozzle does not ooze.");
     def->mode = comAdvanced;
     def->nullable = true;
     def->set_default_value(new ConfigOptionBoolsNullable {false});
 
     def = this->add("retraction_distances_when_ec", coFloats);
     def->label = L("Retraction distance when extruder change");
+    def->tooltip = L("Length of the long retraction when the printer switches to the other extruder.");
     def->mode = comAdvanced;
     def->nullable = true;
     def->min = 0;
@@ -5637,7 +5649,11 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("z_hop_types", coEnums);
     def->label = L("Z Hop Type");
-    def->tooltip = L("");
+    def->tooltip = L("How the nozzle lifts when it retracts before a travel.\n"
+                     "Normal: straight up.\n"
+                     "Slope: at 3° along the start of the travel.\n"
+                     "Spiral: along a small helix in place, which reduces stringing.\n"
+                     "Auto: Spiral over overhangs and at layer or tool changes, Slope elsewhere.");
     def->enum_keys_map = &ConfigOptionEnum<ZHopType>::get_enum_values();
     def->enum_values.push_back("Auto Lift");
     def->enum_values.push_back("Normal Lift");
@@ -5874,7 +5890,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("retraction_speed", coFloats);
     def->label = L("Retraction Speed");
     def->full_label = L("Retraction Speed");
-    def->tooltip = L("Speed of retractions");
+    def->tooltip = L("Speed at which the filament is pulled back when retracting.");
     def->sidetext = L("mm/s");
     def->mode = comAdvanced;
     def->nullable = true;
@@ -6469,7 +6485,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_line_width", coFloat);
     def->label = L("Support");
     def->category = L("Quality");
-    def->tooltip = L("Line width of support");
+    def->tooltip = L("Width of the extruded support lines.");
     def->sidetext = L("mm");
     def->min = 0;
     def->max_literal = 10;
@@ -6546,6 +6562,7 @@ void PrintConfigDef::init_fff_params()
 
     def                = this->add("support_ironing_pattern", coEnum);
     def->label         = L("Support ironing pattern");
+    def->tooltip       = L("Path the nozzle follows when ironing the top of the support.");
     def->category      = L("Support");
     def->enum_keys_map = &ConfigOptionEnum<InfillPattern>::get_enum_values();
     def->enum_values.push_back("concentric");
@@ -6619,7 +6636,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_interface_speed", coFloats);
     def->label = L("Support interface");
     def->category = L("Speed");
-    def->tooltip = L("Speed of support interface");
+    def->tooltip = L("Speed of the support interface layers that touch the model.");
     def->sidetext = L("mm/s");
     def->min = 1;
     def->mode = comAdvanced;
@@ -6629,7 +6646,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_base_pattern", coEnum);
     def->label = L("Base pattern");
     def->category = L("Support");
-    def->tooltip = L("Line pattern of support");
+    def->tooltip = L("Line pattern of the support body.");
     def->enum_keys_map = &ConfigOptionEnum<SupportMaterialPattern>::get_enum_values();
     def->enum_values.push_back("default");
     def->enum_values.push_back("rectilinear");
@@ -6668,7 +6685,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_base_pattern_spacing", coFloat);
     def->label = L("Base pattern spacing");
     def->category = L("Support");
-    def->tooltip = L("Spacing between support lines");
+    def->tooltip = L("Distance between the lines of the support body.");
     def->sidetext = L("mm");
     def->min = 0;
     def->mode = comAdvanced;
@@ -6685,7 +6702,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_speed", coFloats);
     def->label = L("Support");
     def->category = L("Speed");
-    def->tooltip = L("Speed of support");
+    def->tooltip = L("Speed of the support body.");
     def->sidetext = L("mm/s");
     def->min = 0;
     def->mode = comAdvanced;
@@ -6859,6 +6876,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("impact_strength_z", coFloats);
     def->label = L("Impact Strength Z");
+    def->tooltip = L("Impact strength of printed parts across the layers (Z direction). Informational.");
     def->mode  = comDevelop;
     def->set_default_value(new ConfigOptionFloats{0});
 
@@ -7419,7 +7437,7 @@ void PrintConfigDef::init_fff_params()
 
     def           = this->add("prime_tower_infill_gap", coPercent);
     def->label    = L("Infill gap");
-    def->tooltip  = L("Infill gap");
+    def->tooltip  = L("Spacing between the infill lines of the prime tower, as a percentage of the line width.");
     def->sidetext = L("%");
     def->mode     = comAdvanced;
     def->min      = 100;

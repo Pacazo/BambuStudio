@@ -38,6 +38,8 @@ public:
     // the def (but below a curated store entry) to stay in sync with the row.
     static bool ShowFor(const std::string &opt_key, const std::string &wiki_path, const wxPoint &tip_pos, const wxString &line_label = {}, const wxString &line_tooltip = {});
     static void Hide();
+    // Hide at once, also with the mouse over the card (Hide() waits and keeps it then)
+    static void HideNow();
     // Destroy the singleton (its popup + shadow) and drop the localized store, so the next hover
     // rebuilds against the current MainFrame in the current language. Must run while the MainFrame
     // is torn down (app close, and the language-switch GUI rebuild): the popup is a child of that
@@ -101,6 +103,7 @@ private:
     Label          *m_title   = nullptr;
     wxWindow       *m_divider = nullptr;
     Label          *m_desc    = nullptr;
+    Label          *m_desc_mark = nullptr; // red circle before a description written by this fork
     wxStaticBitmap *m_image   = nullptr;
     wxWindow       *m_details = nullptr; // container for the bulleted detail rows
     Label          *m_note    = nullptr;
