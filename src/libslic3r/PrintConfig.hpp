@@ -422,7 +422,7 @@ enum FilamentGroupingMode {
     fgmDefault,         // original behaviour
     fgmFilamentSaving,  // skip the dialog, auto for flush
     fgmConvenience,     // skip the dialog, auto for match
-    fgmCustom           // always show the dialog, on the custom page
+    fgmCustom           // skip the dialog, apply the last custom grouping
 };
 
 inline bool is_auto_filament_map_mode(FilamentMapMode mode) {

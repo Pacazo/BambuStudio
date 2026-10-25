@@ -8,12 +8,14 @@
 #include "CapsuleButton.hpp"
 #include "MsgDialog.hpp"
 #include "PartPlate.hpp"
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Log.hpp"
 
 #include <algorithm>
 #include <wx/display.h>
 #include <wx/scrolwin.h>
+#include <sstream>
 
 namespace Slic3r::GUI {
 
@@ -196,6 +198,47 @@ static std::vector<int> get_applied_volume_map(DynamicConfig& proj_config, const
     return plater_ref->get_global_filament_volume_map();
 }
 
+static std::string ints_to_string(const std::vector<int>& values)
+{
+    std::string result;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0)
+            result += ',';
+        result += std::to_string(values[i]);
+    }
+    return result;
+}
+
+static std::vector<int> string_to_ints(const std::string& str)
+{
+    std::vector<int> result;
+    std::istringstream stream(str);
+    std::string token;
+    while (std::getline(stream, token, ',')) {
+        try {
+            result.push_back(std::stoi(token));
+        } catch (...) {
+            return {};
+        }
+    }
+    return result;
+}
+
+void remember_custom_filament_map(const std::vector<int>& filament_maps, const std::vector<int>& filament_volume_maps)
+{
+    AppConfig* app_config = wxGetApp().app_config;
+    app_config->set("last_custom_filament_map", ints_to_string(filament_maps));
+    app_config->set("last_custom_filament_volume_map", ints_to_string(filament_volume_maps));
+}
+
+static bool get_last_custom_filament_map(std::vector<int>& filament_maps, std::vector<int>& filament_volume_maps)
+{
+    AppConfig* app_config = wxGetApp().app_config;
+    filament_maps = string_to_ints(app_config->get("last_custom_filament_map"));
+    filament_volume_maps = string_to_ints(app_config->get("last_custom_filament_volume_map"));
+    return !filament_maps.empty();
+}
+
 extern std::string& get_left_extruder_unprintable_text();
 extern std::string& get_right_extruder_unprintable_text();
 
@@ -315,6 +358,35 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
         applied_mode = fallback_mode;
     }
 
+    if (grouping_mode == fgmCustom) {
+        // skip the dialog and apply the last custom grouping; plates already in custom mode keep their own grouping
+        std::vector<int> last_maps, last_volume_maps;
+        if (!get_last_custom_filament_map(last_maps, last_volume_maps) && applied_mode == fmmManual) {
+            last_maps = applied_maps;
+            last_volume_maps = applied_volume_maps;
+        }
+        // without any custom grouping yet, fall through to the dialog on the custom page
+        if (!last_maps.empty()) {
+            std::vector<PartPlate*> plates = is_slice_all ? plater_ref->get_partplate_list().get_plate_list() : std::vector<PartPlate*>{ partplate_ref };
+            bool changed = false;
+            for (PartPlate* plate : plates) {
+                if (plate->get_real_filament_map_mode(full_config) == fmmManual)
+                    continue;
+                std::vector<int> new_maps(filament_colors.size(), 1);
+                std::vector<int> new_volume_maps(filament_colors.size(), 0);
+                std::copy_n(last_maps.begin(), std::min(last_maps.size(), new_maps.size()), new_maps.begin());
+                std::copy_n(last_volume_maps.begin(), std::min(last_volume_maps.size(), new_volume_maps.size()), new_volume_maps.begin());
+                plate->set_filament_map_mode(fmmManual);
+                plate->set_filament_maps(new_maps);
+                plate->set_filament_volume_maps(new_volume_maps);
+                changed = true;
+            }
+            if (changed)
+                plater_ref->update(false, true);
+            return true;
+        }
+    }
+
     // 跳过这一次弹窗的条件：待放行的确认就是这张盘的，且确认之后这张盘没再发生过切片失效
     const bool tpu_regroup_confirmed = !is_slice_all
         && pending_confirmation.plate_id == partplate_ref->id()
@@ -361,6 +433,8 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
         FilamentMapMode new_mode = map_dlg.get_mode();
         std::vector<int> new_maps = map_dlg.get_filament_maps();
         std::vector<int> new_volume_maps = map_dlg.get_filament_volume_maps();
+        if (new_mode == fmmManual)
+            remember_custom_filament_map(new_maps, new_volume_maps);
 
         // Backend representation of new_maps, only filled on single-extruder multi-nozzle machines.
         std::vector<int> backend_filament_maps;

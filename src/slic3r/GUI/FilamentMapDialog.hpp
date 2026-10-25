@@ -30,6 +30,8 @@ class SmartFilamentPanel;
  * @return whether continue slicing
 */
 bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* partplate_ref, bool force_pop_up = false, bool explicit_request = false);
+// Store the grouping accepted on the custom page, applied without the dialog when filament_grouping_mode is custom
+void remember_custom_filament_map(const std::vector<int>& filament_maps, const std::vector<int>& filament_volume_maps);
 std::vector<FilamentMapMode> resolve_available_auto_modes(Print *print_obj, const std::vector<FilamentMapMode> &requested_modes, bool machine_synced);
 /**
  * @brief Mode to use when the stored one cannot be used right now.

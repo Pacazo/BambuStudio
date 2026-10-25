@@ -6193,7 +6193,7 @@ void PrintConfigDef::init_fff_params()
                      "Default keeps the original behaviour. "
                      "Filament-Saving and Convenience skip the dialog and apply that auto grouping mode. "
                      "Convenience falls back to Filament-Saving when the printer is not connected. "
-                     "Custom always shows the \"Filament grouping\" dialog with the custom tab selected.");
+                     "Custom skips the dialog and applies the last custom grouping; the dialog is shown only until a custom grouping has been set.");
     def->enum_keys_map = &ConfigOptionEnum<FilamentGroupingMode>::get_enum_values();
     def->enum_values.emplace_back("default");
     def->enum_values.emplace_back("filament_saving");

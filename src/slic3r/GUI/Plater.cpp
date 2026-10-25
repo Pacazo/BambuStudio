@@ -30840,6 +30840,7 @@ void Plater::open_filament_map_setting_dialog(wxCommandEvent &evt)
                 curr_plate->set_filament_maps(new_filament_maps);
             }
             curr_plate->set_filament_volume_maps(new_filament_volume_maps);
+            remember_custom_filament_map(new_filament_maps, new_filament_volume_maps);
         }
 
         bool need_invalidate = (old_map_mode != new_map_mode ||
