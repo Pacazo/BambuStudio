@@ -672,9 +672,11 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
     custom_mark->SetForegroundColour(wxColour(230, 0, 0));
     custom_mark->SetToolTip(_L("Custom parameter"));
     auto info_text = new wxStaticText(this, wxID_ANY,
-        _L("The ironing flow grows linearly from the start value 5 mm after the left edge to the end value 5 mm before the right edge.\n"
-           "The test is 10 mm long per step. The ruler has a tick per step, each adding (end - start) / steps, and wide ticks\n"
-           "at the start, the middle and the end. The start and end values are engraved at the left and right ends."));
+        _L("Calibration test to check the optimum value of the ironing flow between the values specified below. The longer the "
+           "test piece, the easier it is to visualize it. Check the result by looking at light reflected on the test piece. The "
+           "optimum value is high enough to hide the lines of the surface, but low enough to avoid roughness by overextrusion. In "
+           "between these two values, the lower ones are matte, the higher ones are glossier."));
+    info_text->Wrap(FromDIP(560));
     info_sizer->Add(custom_mark, 0, wxALL, FromDIP(2));
     info_sizer->Add(info_text, 0, wxALL, FromDIP(2));
     v_sizer->Add(info_sizer, 0, wxALL, FromDIP(5));
@@ -689,45 +691,45 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
 
     // Settings
     //
-    wxString start_str = _L("Start ironing flow: ");
-    wxString end_str = _L("End ironing flow: ");
-    wxString steps_str = _L("Steps: ");
+    wxString start_str = _L("Minimum ironing flow: ");
+    wxString end_str = _L("Maximum ironing flow: ");
+    wxString length_str = _L("Length: ");
     auto text_size = wxWindow::GetTextExtent(start_str);
     text_size.IncTo(wxWindow::GetTextExtent(end_str));
-    text_size.IncTo(wxWindow::GetTextExtent(steps_str));
+    text_size.IncTo(wxWindow::GetTextExtent(length_str));
     text_size.x = text_size.x * 1.5;
     wxStaticBoxSizer* settings_sizer = new wxStaticBoxSizer(wxVERTICAL, this, _L("Settings"));
 
     auto st_size = FromDIP(wxSize(text_size.x, -1));
     auto ti_size = FromDIP(wxSize(90, -1));
-    // start flow
+    // minimum flow
     auto start_sizer = new wxBoxSizer(wxHORIZONTAL);
     auto start_text = new wxStaticText(this, wxID_ANY, start_str, wxDefaultPosition, st_size, wxALIGN_LEFT);
-    m_tiStart = new TextInput(this, std::to_string(5), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
+    m_tiStart = new TextInput(this, std::to_string(10), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
     m_tiStart->GetTextCtrl()->SetValidator(wxTextValidator(wxFILTER_NUMERIC));
     start_sizer->Add(start_text, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
     start_sizer->Add(m_tiStart, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
     settings_sizer->Add(start_sizer);
 
-    // end flow
+    // maximum flow
     auto end_sizer = new wxBoxSizer(wxHORIZONTAL);
     auto end_text = new wxStaticText(this, wxID_ANY, end_str, wxDefaultPosition, st_size, wxALIGN_LEFT);
-    m_tiEnd = new TextInput(this, std::to_string(25), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
+    m_tiEnd = new TextInput(this, std::to_string(30), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
     m_tiEnd->GetTextCtrl()->SetValidator(wxTextValidator(wxFILTER_NUMERIC));
     end_sizer->Add(end_text, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
     end_sizer->Add(m_tiEnd, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
     settings_sizer->Add(end_sizer);
 
-    // steps
-    auto steps_sizer = new wxBoxSizer(wxHORIZONTAL);
-    auto steps_text = new wxStaticText(this, wxID_ANY, steps_str, wxDefaultPosition, st_size, wxALIGN_LEFT);
-    m_tiSteps = new TextInput(this, std::to_string(20), "", "", wxDefaultPosition, ti_size, wxTE_CENTRE);
-    m_tiSteps->GetTextCtrl()->SetValidator(wxTextValidator(wxFILTER_DIGITS));
-    steps_sizer->Add(steps_text, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
-    steps_sizer->Add(m_tiSteps, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
-    settings_sizer->Add(steps_sizer);
+    // length of the ironed band
+    auto length_sizer = new wxBoxSizer(wxHORIZONTAL);
+    auto length_text = new wxStaticText(this, wxID_ANY, length_str, wxDefaultPosition, st_size, wxALIGN_LEFT);
+    m_tiLength = new TextInput(this, std::to_string(100), _L("mm"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
+    m_tiLength->GetTextCtrl()->SetValidator(wxTextValidator(wxFILTER_NUMERIC));
+    length_sizer->Add(length_text, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
+    length_sizer->Add(m_tiLength, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
+    settings_sizer->Add(length_sizer);
 
-    v_sizer->Add(settings_sizer);
+    v_sizer->Add(settings_sizer, 0, wxLEFT | wxRIGHT | wxEXPAND, FromDIP(10));
     v_sizer->Add(0, FromDIP(10), 0, wxEXPAND, 5);
     m_btnStart = new Button(this, _L("OK"));
     StateColor btn_bg_green(std::pair<wxColour, int>(wxColour(23, 129, 63), StateColor::Pressed),
@@ -759,13 +761,19 @@ void IroningFlow_Test_Dlg::on_start(wxCommandEvent& event)
     bool read_double = false;
     read_double = m_tiStart->GetTextCtrl()->GetValue().ToDouble(&m_params.start);
     read_double = read_double && m_tiEnd->GetTextCtrl()->GetValue().ToDouble(&m_params.end);
-    long steps  = 0;
-    read_double = read_double && m_tiSteps->GetTextCtrl()->GetValue().ToLong(&steps);
-    // The number of steps of the ruler, see Plater::calib_ironing_flow().
-    m_params.step = double(steps);
+    // The length of the ironed band in mm, see Plater::calib_ironing_flow().
+    read_double = read_double && m_tiLength->GetTextCtrl()->GetValue().ToDouble(&m_params.step);
 
-    if (!read_double || m_params.start < 0 || m_params.end <= m_params.start || m_params.end > 100 || steps < 1) {
-        MessageDialog msg_dlg(nullptr, _L("Please input valid values:\n0 <= start < end <= 100\nsteps >= 1"), wxEmptyString, wxICON_WARNING | wxOK);
+    if (!read_double || m_params.start < 0 || m_params.end <= m_params.start || m_params.end > 100 || m_params.step < 10) {
+        MessageDialog msg_dlg(nullptr, _L("Please input valid values:\n0 <= minimum < maximum <= 100\nlength >= 10 mm"), wxEmptyString, wxICON_WARNING | wxOK);
+        msg_dlg.ShowModal();
+        return;
+    }
+    // The marks are at least 10 mm apart.
+    if (ironing_flow_calib_mark_step(m_params.start, m_params.end, m_params.step) == 0.) {
+        MessageDialog msg_dlg(nullptr, wxString::Format(_L("Marks every 20 %% would be less than 10 mm apart: use a length of at least %.0f mm."),
+                                                        std::ceil((m_params.end - m_params.start) / 2.)),
+                              wxEmptyString, wxICON_WARNING | wxOK);
         msg_dlg.ShowModal();
         return;
     }

@@ -374,10 +374,15 @@ private:
     const double m_glyph_padding_vertical{1};
 };
 
-// Ironing flow calibration plate, 10 mm per step plus 5 mm at each end, 20 mm deep. The back 15 mm are the band ironed from
-// 5 mm to 5 mm before the right end, with the start and end flows engraved in the side strips. The front 5 mm hold a ruler
-// with a tick per step. base_z is the top of the base, ruler_z the top of the ruler ticks and top_z the top of the band.
-indexed_triangle_set ironing_flow_calib_mesh(int steps, double start_flow, double end_flow, double nozzle_diameter,
+// Flow between the marks of the ironing flow calibration plate: the first of 1, 2, 5, 10 and 20 % that keeps them at least
+// 10 mm apart, or 0 if none does.
+double ironing_flow_calib_mark_step(double min_flow, double max_flow, double length);
+
+// Ironing flow calibration plate, 5 mm longer than the band at each end. The back 15 mm are the band, ironed along its
+// length, with the minimum and maximum flows engraved in the side strips. In front of it, marks 0.5 mm wide and 2 mm long
+// every ironing_flow_calib_mark_step() with their flow embossed below. base_z is the top of the base, ruler_z the top of the
+// marks and their flows and top_z the top of the band.
+indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, double length, double nozzle_diameter,
                                              double base_z, double ruler_z, double top_z);
 
 } // namespace Slic3r

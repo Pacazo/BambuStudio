@@ -117,7 +117,7 @@ protected:
 
     TextInput* m_tiStart;
     TextInput* m_tiEnd;
-    TextInput* m_tiSteps;
+    TextInput* m_tiLength;
     Button* m_btnStart;
     Plater* m_plater;
 };

@@ -25360,15 +25360,14 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
         if (agent) agent->track_event("third_cali", js.dump());
     } catch (...) {}
 
-    // 10 mm per step plus 5 mm at each end, see ironing_flow_calib_mesh().
-    const int    steps  = std::max(1, int(std::lround(params.step)));
-    const double length = 10. * steps + 10.;
+    // The band plus 5 mm at each end, see ironing_flow_calib_mesh().
+    const double length = params.step + 10.;
     {
         const auto        &printer_config = wxGetApp().preset_bundle->printers.get_edited_preset().config;
         const BoundingBoxf bed            = get_extents(printer_config.option<ConfigOptionPoints>("printable_area")->values);
         if (length > bed.size().x() - 10.) {
-            MessageDialog dlg(this, wxString::Format(_L("%d steps make a test %.0f mm long, which does not fit on the bed. Use at most %d steps."),
-                                                     steps, length, int((bed.size().x() - 20.) / 10.)),
+            MessageDialog dlg(this, wxString::Format(_L("A band %.0f mm long makes a test %.0f mm long, which does not fit on the bed. Use at most %.0f mm."),
+                                                     params.step, length, bed.size().x() - 20.),
                               _L("Warning"), wxOK | wxICON_WARNING);
             dlg.ShowModal();
             return;
@@ -25398,12 +25397,14 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
         print_config->set_key_value("layer_height", new ConfigOptionFloat(calib_layer_height));
     print_config->set_key_value("enable_wrapping_detection", new ConfigOptionBool(false));
 
-    // 2 base layers, 2 more layers with the ruler and 1 top layer, the only one ironed. The flows are engraved down to the base.
+    // 2 base layers, 2 more layers with the marks and their flows and 1 top layer, the only one ironed. The minimum and
+    // maximum flows are engraved down to the base.
     const double first_layer_height = print_config->option<ConfigOptionFloat>("initial_layer_print_height")->value;
     const double layer_height       = print_config->option<ConfigOptionFloat>("layer_height")->value;
     const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);
-    TriangleMesh mesh(ironing_flow_calib_mesh(steps, params.start, params.end, nozzle_diameter, first_layer_height + layer_height,
-                                              first_layer_height + 3. * layer_height, first_layer_height + 4. * layer_height));
+    TriangleMesh mesh(ironing_flow_calib_mesh(params.start, params.end, params.step, nozzle_diameter,
+                                              first_layer_height + layer_height, first_layer_height + 3. * layer_height,
+                                              first_layer_height + 4. * layer_height));
     sidebar().obj_list()->load_mesh_object(mesh, _L("Ironing flow test"), true);
     auto obj = model().objects[0];
     obj->config.set_key_value("ironing_type", new ConfigOptionEnum<IroningType>(IroningType::TopmostOnly));

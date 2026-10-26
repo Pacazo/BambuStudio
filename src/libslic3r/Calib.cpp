@@ -851,31 +851,41 @@ static Polylines ironing_flow_glyph(char c, double len, double dot, Polygons &do
     }
 }
 
-// Text engraved along a side strip of the ironing flow calibration plate, reading towards +Y with the top of the
-// glyphs towards -X, centred at center_x, center_y and fitted into width x length.
-static ExPolygons ironing_flow_text(const std::string &text, double center_x, double center_y, double width, double length,
-                                    double stroke)
+// Length along the reading direction of text in glyphs len wide drawn with strokes stroke wide.
+static double ironing_flow_text_length(const std::string &text, double len, double stroke)
 {
-    double len = std::min(1.5, (width - stroke) / 2.);
-    auto   advance = [&len, stroke](char c) { return (c == '.' ? 0. : len) + 2 * stroke; };
     double total = -stroke;
     for (char c : text)
-        total += advance(c);
-    if (total > length) {
-        len *= (length + stroke - 2 * stroke * text.size()) / (total + stroke - 2 * stroke * text.size());
-        total = length;
-    }
+        total += (c == '.' ? 0. : len) + 2 * stroke;
+    return total;
+}
 
+// Glyph width that fits text drawn with strokes stroke wide into width x length, at most 1.5 mm. Only the glyphs shrink
+// to fit the length, not the spacing between them.
+static double ironing_flow_text_fit(const std::string &text, double width, double length, double stroke)
+{
+    double       len     = std::min(1.5, (width - stroke) / 2.);
+    const double total   = ironing_flow_text_length(text, len, stroke);
+    const double spacing = ironing_flow_text_length(text, 0., stroke);
+    if (total > length)
+        len *= (length - spacing) / (total - spacing);
+    return len;
+}
+
+// Text of the ironing flow calibration plate, reading towards -Y with the top of the glyphs towards +X, centred on
+// center_x and running down from top_y, in glyphs len wide and 2 * len high drawn with strokes stroke wide.
+static ExPolygons ironing_flow_text(const std::string &text, double center_x, double top_y, double len, double stroke)
+{
     Polylines strokes;
     Polygons  dots;
-    double    u = center_y - total / 2. + stroke / 2.;
+    double    u = top_y - stroke / 2.;
     for (char c : text) {
         Polygons  glyph_dots;
         Polylines glyph = ironing_flow_glyph(c, len, stroke * 1.2, glyph_dots);
-        // Glyph cell (gx, gy) to the plate: x = center_x - (gy - len), y = u + gx.
+        // Glyph cell (gx, gy) to the plate: x = center_x + (gy - len), y = u - gx.
         auto place = [center_x, u, len](Point &p) {
             const Vec2d g = unscale(p);
-            p = Point::new_scale(center_x - (g.y() - len), u + g.x());
+            p = Point::new_scale(center_x + (g.y() - len), u - g.x());
         };
         for (Polyline &pl : glyph) {
             for (Point &p : pl.points)
@@ -888,7 +898,7 @@ static ExPolygons ironing_flow_text(const std::string &text, double center_x, do
             dot.make_counter_clockwise();
             dots.emplace_back(std::move(dot));
         }
-        u += advance(c);
+        u -= (c == '.' ? 0. : len) + 2 * stroke;
     }
     Polygons shapes = offset(strokes, float(scale_(stroke / 2.)), ClipperLib::jtMiter, 3., ClipperLib::etOpenSquare);
     append(shapes, std::move(dots));
@@ -917,43 +927,55 @@ static indexed_triangle_set ironing_flow_prism(const ExPolygons &shape, double z
     return its;
 }
 
-indexed_triangle_set ironing_flow_calib_mesh(int steps, double start_flow, double end_flow, double nozzle_diameter,
+double ironing_flow_calib_mark_step(double min_flow, double max_flow, double length)
+{
+    for (double step : { 1., 2., 5., 10., 20. })
+        if (step * length / (max_flow - min_flow) >= 10. - EPSILON)
+            return step;
+    return 0.;
+}
+
+indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, double length, double nozzle_diameter,
                                              double base_z, double ruler_z, double top_z)
 {
-    const double length = 10. * steps + 10.;
+    constexpr double side         = 5.;
+    constexpr double depth        = 15.;
+    const double     total_length = length + 2. * side;
     auto rectangle = [](double x0, double y0, double x1, double y1) {
         return ExPolygon(Polygon({ Point::new_scale(x0, y0), Point::new_scale(x1, y0), Point::new_scale(x1, y1), Point::new_scale(x0, y1) }));
     };
 
-    // Ruler ticks in front of the band, long every second step, wide at the start, the middle and the end.
-    Polygons ticks;
-    for (int i = 0; i <= steps; ++i) {
-        const double x      = 5. + 10. * i;
-        const bool   wide   = i == 0 || i == steps || (steps % 2 == 0 && i == steps / 2);
-        const double r      = wide ? 1. : 0.5;
-        const double tip_y  = (i % 2 == 0 ? -10. : -8.5) + r;
-        Polygon tick;
-        tick.points.emplace_back(Point::new_scale(x + r, -4.9));
-        tick.points.emplace_back(Point::new_scale(x - r, -4.9));
-        const int arc = 16;
-        for (int k = 0; k <= arc; ++k) {
-            const double a = M_PI + M_PI * k / arc;
-            tick.points.emplace_back(Point::new_scale(x + r * std::cos(a), tip_y + r * std::sin(a)));
+    // Marks in front of the band with their flow embossed below, drawn as wide as the marks.
+    constexpr double mark_length = 2.;
+    constexpr double label_gap   = 1.;
+    constexpr double label_len   = 1.5;
+    const double     mark_width  = std::max(0.5, nozzle_diameter);
+    Polygons         marks;
+    double           front = 5.;
+    if (const double step = ironing_flow_calib_mark_step(min_flow, max_flow, length); step > 0.)
+        for (int i = int(std::ceil(min_flow / step - EPSILON)); i * step <= max_flow + EPSILON; ++i) {
+            const double      flow  = i * step;
+            const double      x     = side + (flow - min_flow) * length / (max_flow - min_flow);
+            const std::string label = ironing_flow_label(flow);
+            marks.emplace_back(rectangle(x - mark_width / 2., -mark_length, x + mark_width / 2., 0.).contour);
+            append(marks, to_polygons(ironing_flow_text(label, x, -mark_length - label_gap, label_len, mark_width)));
+            front = std::max(front, mark_length + label_gap + ironing_flow_text_length(label, label_len, mark_width) + 1.5);
         }
-        tick.make_counter_clockwise();
-        ticks.emplace_back(std::move(tick));
+
+    // Minimum and maximum flows engraved in the side strips, down to the base.
+    const double stroke = 1.5 * nozzle_diameter;
+    ExPolygons   text;
+    for (const auto &[flow, x] : { std::pair(min_flow, side / 2.), std::pair(max_flow, total_length - side / 2.) }) {
+        const std::string label = ironing_flow_label(flow);
+        const double      len   = ironing_flow_text_fit(label, side - 2. * std::max(0.6, nozzle_diameter), depth - 1.2, stroke);
+        append(text, ironing_flow_text(label, x, (depth + ironing_flow_text_length(label, len, stroke)) / 2., len, stroke));
     }
 
-    const ExPolygon band = rectangle(0., -5., length, 10.);
-    ExPolygons text = ironing_flow_text(ironing_flow_label(start_flow), 2.5, 2.5, 5. - 2. * std::max(0.6, nozzle_diameter), 15. - 1.2,
-                                        1.5 * nozzle_diameter);
-    append(text, ironing_flow_text(ironing_flow_label(end_flow), length - 2.5, 2.5, 5. - 2. * std::max(0.6, nozzle_diameter), 15. - 1.2,
-                                   1.5 * nozzle_diameter));
+    const ExPolygon band  = rectangle(0., 0., total_length, depth);
+    Polygons        ruler = to_polygons(band);
+    append(ruler, std::move(marks));
 
-    Polygons ruler = to_polygons(band);
-    append(ruler, std::move(ticks));
-
-    indexed_triangle_set its = ironing_flow_prism({ rectangle(0., -10., length, 10.) }, 0., base_z);
+    indexed_triangle_set its = ironing_flow_prism({ rectangle(0., -front, total_length, depth) }, 0., base_z);
     its_merge(its, ironing_flow_prism(diff_ex(union_(ruler), text), base_z, ruler_z));
     its_merge(its, ironing_flow_prism(diff_ex(ExPolygons{ band }, text), ruler_z, top_z));
     return its;
