@@ -1129,8 +1129,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
         toggle_line(el, has_height_slowdown, variant_index);
 
     bool has_chamber_override = config->has("override_chamber_temperature") && config->opt_bool("override_chamber_temperature");
-    for (auto el : { "chamber_temperature_override", "disable_chamber_cooling" })
-        toggle_line(el, has_chamber_override);
+    toggle_line("chamber_temperature_override", has_chamber_override);
+    // From 40 °C the chamber is heated, so its cooling is off anyway.
+    toggle_line("disable_chamber_cooling", has_chamber_override && config->opt_int("chamber_temperature_override") < 40);
     toggle_line("bed_temperature_override", config->has("override_bed_temperature") && config->opt_bool("override_bed_temperature"));
 
     toggle_line("flush_into_objects", !is_global_config);
