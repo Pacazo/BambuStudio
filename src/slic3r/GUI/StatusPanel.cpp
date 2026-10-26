@@ -1764,8 +1764,12 @@ void PrintingTaskPanel::on_stage_clicked(wxMouseEvent &event)
 
 void PrintingTaskPanel::update_progress_percent(wxString percent, wxString icon)
 {
+    if (m_staticText_progress_percent->GetLabelText() == percent && m_staticText_progress_percent_icon->GetLabelText() == icon)
+        return;
     m_staticText_progress_percent->SetLabelText(percent);
     m_staticText_progress_percent_icon->SetLabelText(icon);
+    // The value grows to the right when it gains a digit: move the "%" next to it, or it is drawn over the last digit.
+    m_staticText_progress_percent->GetParent()->Layout();
 }
 
 void PrintingTaskPanel::update_left_time(wxString time) { m_staticText_progress_left->SetLabelText(time); }
