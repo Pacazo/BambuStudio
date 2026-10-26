@@ -11,8 +11,9 @@ public:
     CoolingBuffer(){};
 
     // park_layer_time > 0: a layer shorter than this even at the minimum print speed is not slowed down, the print head parks
-    // for the rest of the time.
-    float calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time = 0.f);
+    // for the rest of the time. slow_down = false: no layer is slowed down, so every layer shorter than park_layer_time parks.
+    float calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time = 0.f,
+                                   bool slow_down = true);
 
     // Results of the last calculate_layer_slowdown() call.
     // Time the print head parks after the layer, 0 if it does not park.

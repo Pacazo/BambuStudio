@@ -107,6 +107,7 @@ bool is_custom_tooltip(const std::string &opt_key)
 {
     static const std::set<std::string> custom_tooltips = {
         "bed_temperature_override", "chamber_temperature_override", "default_filament_colour", "default_jerk", "disable_chamber_cooling",
+        "disable_layer_time_slowdown",
         "enable_wrapping_detection", "extruder_printable_area", "filament_adhesiveness_category", "filament_grouping_mode",
         "first_layer_sequence_choice", "impact_strength_z", "infill_jerk", "initial_layer_jerk", "inner_wall_jerk", "inner_wall_speed",
         "interlocking_orientation", "ironing_pattern", "locked_skeleton_infill_pattern", "locked_skin_infill_pattern",

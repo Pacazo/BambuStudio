@@ -3422,6 +3422,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("filament_grouping_mode");
         optgroup->append_single_option_line("start_delay");
         optgroup->append_single_option_line("park_min_layer_time");
+        optgroup->append_single_option_line("disable_layer_time_slowdown");
         optgroup->append_single_option_line("override_chamber_temperature");
         optgroup->append_single_option_line("chamber_temperature_override");
         optgroup->append_single_option_line("disable_chamber_cooling");

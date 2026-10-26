@@ -256,7 +256,8 @@ static inline void extruder_range_slow_down_non_proportional(std::vector<PerExtr
 }
 
 // Calculate slow down for all the extruders.
-float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time)
+float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time,
+                                              bool slow_down)
 {
     m_park_time              = 0.f;
     m_layer_time_not_reached = false;
@@ -271,7 +272,7 @@ float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments
         for (PerExtruderAdjustments &adj : per_extruder_adjustments) {
             const float time = adj.elapsed_time_total();
             layer_time += time;
-            slowest_time += adj.cooling_slow_down_enabled ? adj.maximum_time_after_slowdown(true) : time;
+            slowest_time += slow_down && adj.cooling_slow_down_enabled ? adj.maximum_time_after_slowdown(true) : time;
             has_lines |= !adj.lines.empty();
         }
         if (has_lines && slowest_time < park_layer_time) {
@@ -297,7 +298,7 @@ float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments
         adj.time_total = adj.elapsed_time_total();
         // Maximum time for this extruder, when all extrusion moves are slowed down to min_extrusion_speed.
         adj.time_maximum = adj.maximum_time_after_slowdown(true);
-        if (adj.cooling_slow_down_enabled && adj.lines.size() > 0) {
+        if (slow_down && adj.cooling_slow_down_enabled && adj.lines.size() > 0) {
             by_slowdown_time.emplace_back(&adj);
 
             // For ConsistentSurface logic, prepare the non-adjustable segments

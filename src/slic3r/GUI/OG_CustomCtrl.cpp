@@ -48,6 +48,7 @@ static bool is_custom_option(const std::string& opt_id)
         "bed_temperature_override",
         "start_delay",
         "park_min_layer_time",
+        "disable_layer_time_slowdown",
         "filament_cost",
     };
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;

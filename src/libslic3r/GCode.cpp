@@ -3971,18 +3971,21 @@ void GCode::process_layers(
     const size_t          max_tokens               = park_layer_time > 0.f ? 1 : 12;
     float                 park_time_after_previous = 0.f;
     std::vector<coordf_t> layer_time_not_reached_z;
+    // Disable slowdown for layer time: no layer is slowed down, neither for the filament nor for the minimum layer time.
+    const bool            slow_down                = !m_config.disable_layer_time_slowdown.value;
 
     const auto cooling = tbb::make_filter<GCode::LayerResult, GCode::LayerResult>(slic3r_tbb_filtermode::serial_in_order,
     [this, &cooling_processor, &layers_extruder_adjustments, &layers_to_print, &tool_ordering, park_layer_time, &park_time_after_previous,
-     &layer_time_not_reached_z](GCode::LayerResult in) -> GCode::LayerResult {
+     &layer_time_not_reached_z, slow_down](GCode::LayerResult in) -> GCode::LayerResult {
         if (in.gcode.empty()) {
-            in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos]);
+            in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos], 0.f, slow_down);
             return std::move(in);
         }
         // The print head can park only when the next layer has the wipe tower to purge on.
         const bool park_after = park_layer_time > 0.f && in.gcode_store_pos + 1 < layers_to_print.size() &&
                                 tool_ordering.tools_for_layer(layers_to_print[in.gcode_store_pos + 1].first).has_wipe_tower;
-        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos], park_after ? park_layer_time : 0.f);
+        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos], park_after ? park_layer_time : 0.f,
+                                                                   slow_down);
         in.park_time  = park_time_after_previous;
         park_time_after_previous = cooling_processor.park_time();
         m_park_next_layer        = cooling_processor.park_time() > 0.f;
@@ -4144,10 +4147,12 @@ void GCode::process_layers(
     // step 3: cooling
     std::vector<std::vector<OutwallCollection>> layers_wall_collection(layers_to_print.size());
     CoolingBuffer cooling_processor;
+    // Disable slowdown for layer time.
+    const bool    slow_down = !m_config.disable_layer_time_slowdown.value;
 
     const auto cooling = tbb::make_filter<GCode::LayerResult, GCode::LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-    [&cooling_processor, &layers_extruder_adjustments](GCode::LayerResult in) -> GCode::LayerResult {
-        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos]);
+    [&cooling_processor, &layers_extruder_adjustments, slow_down](GCode::LayerResult in) -> GCode::LayerResult {
+        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos], 0.f, slow_down);
          return std::move(in);
     });
 

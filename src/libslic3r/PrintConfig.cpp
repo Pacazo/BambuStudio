@@ -6274,6 +6274,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0));
 
+    def = this->add("disable_layer_time_slowdown", coBool);
+    def->label = L("Disable slowdown for layer time");
+    def->tooltip = L("Layers are never slowed down to reach a layer time: neither the layer time of the filament "
+                     "(\"Slow printing down for better layer cooling\") nor the minimum layer time. With the minimum layer time on, "
+                     "every layer shorter than it is printed at normal speed and the print head parks for the rest of the time. "
+                     "The fan speed still follows the layer time.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("farthest_point_timelapse", coBool);
     def->label = L("Farthest point timelapse");
     def->tooltip = L("When enabled, the timelapse snapshot is taken at the farthest point from camera "
