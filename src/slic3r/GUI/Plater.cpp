@@ -20434,7 +20434,9 @@ void Plater::priv::update_objects_position_when_select_preset(const std::functio
     }();
     // Wrapping/clumping detection needs a tower too, even on a single-filament plate.
     const bool old_wrapping_detection = old_full_config.opt_bool("enable_wrapping_detection");
-    const bool old_tower_needed_regardless = old_timelapse_smooth || old_wrapping_detection;
+    // The minimum layer time for parking purges on the wipe tower.
+    const bool old_park = old_full_config.has("park_min_layer_time") && old_full_config.opt_float("park_min_layer_time") > 0.;
+    const bool old_tower_needed_regardless = old_timelapse_smooth || old_wrapping_detection || old_park;
     for (size_t i = 0; i < old_plate_list.get_plate_count(); ++i) {
         PartPlate                    *plate   = old_plate_list.get_plate(i);
         std::set<std::pair<int, int>> obj_set = plate->get_obj_and_inst_set();
@@ -20609,8 +20611,9 @@ void Plater::priv::update_objects_position_when_select_preset(const std::functio
         return false;
     }();
     const bool enable_wrapping = new_full_config_for_wt.opt_bool("enable_wrapping_detection");
+    const bool new_park = new_full_config_for_wt.has("park_min_layer_time") && new_full_config_for_wt.opt_float("park_min_layer_time") > 0.;
     // Mirrors the pre-switch check above, evaluated against the target printer's config.
-    const bool new_tower_needed_regardless = new_timelapse_smooth || enable_wrapping;
+    const bool new_tower_needed_regardless = new_timelapse_smooth || enable_wrapping || new_park;
 
     // Baseline arrange params for the "optimal wipe tower position" heuristic.
     const bool                 try_optimal_wt_pos = wipe_tower_optimal_pos_enabled();
@@ -20912,6 +20915,9 @@ void Plater::priv::update_objects_position_when_select_preset(const std::functio
                     // enable_wrapping_detection alone also needs a tower even on a single-color
                     // plate (GLCanvas3D.cpp's equivalent gate ORs this in too, ~line 3897-3898).
                     if (edited_print_cfg.opt_bool("enable_wrapping_detection"))
+                        return true;
+                    // The minimum layer time for parking purges on the wipe tower.
+                    if (edited_print_cfg.has("park_min_layer_time") && edited_print_cfg.opt_float("park_min_layer_time") > 0.)
                         return true;
                     for (const auto &item : arrange_items)
                         if (item.extrude_id_filament_types.size() > 1)

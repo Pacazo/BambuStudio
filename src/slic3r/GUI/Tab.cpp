@@ -2122,6 +2122,18 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
                     set_enable_prime_tower = true;
                 }
             }
+            bool park = m_config->opt_float("park_min_layer_time") > 0.;
+            if (park && !set_enable_prime_tower) {
+                MessageDialog dlg(wxGetApp().plater(),
+                        _L("Prime tower is required for the minimum layer time. Without prime tower, layers will not wait for the minimum layer time. Are you sure you want to disable prime tower?"),
+                        _L("Warning"), wxICON_WARNING | wxYES | wxNO);
+                if (dlg.ShowModal() == wxID_NO) {
+                    DynamicPrintConfig new_conf = *m_config;
+                    new_conf.set_key_value("enable_prime_tower", new ConfigOptionBool(true));
+                    m_config_manipulation.apply(m_config, &new_conf);
+                    set_enable_prime_tower = true;
+                }
+            }
             bool enable_wrapping = m_config->option<ConfigOptionBool>("enable_wrapping_detection")->value;
             if (enable_wrapping && !set_enable_prime_tower) {
                 MessageDialog dlg(wxGetApp().plater(),
@@ -2148,6 +2160,22 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
             wxGetApp().plater()->update();
         }
         update_wiping_button_visibility();
+    }
+
+    if (opt_key == "park_min_layer_time") {
+        bool wipe_tower_enabled = m_config->option<ConfigOptionBool>("enable_prime_tower")->value;
+        if (m_config->opt_float("park_min_layer_time") > 0. && !wipe_tower_enabled) {
+            MessageDialog dlg(wxGetApp().plater(),
+                              _L("The minimum layer time needs the prime tower. Enable the prime tower?"),
+                              _L("Warning"), wxICON_WARNING | wxYES | wxNO);
+            DynamicPrintConfig new_conf = *m_config;
+            if (dlg.ShowModal() == wxID_YES)
+                new_conf.set_key_value("enable_prime_tower", new ConfigOptionBool(true));
+            else
+                new_conf.set_key_value("park_min_layer_time", new ConfigOptionFloat(0.));
+            m_config_manipulation.apply(m_config, &new_conf);
+        }
+        wxGetApp().plater()->update();
     }
 
     if (opt_key == "enable_wrapping_detection") {
@@ -3393,6 +3421,7 @@ void TabPrint::build()
         optgroup = page->new_optgroup(L("General options"), L"advanced");
         optgroup->append_single_option_line("filament_grouping_mode");
         optgroup->append_single_option_line("start_delay");
+        optgroup->append_single_option_line("park_min_layer_time");
         optgroup->append_single_option_line("override_chamber_temperature");
         optgroup->append_single_option_line("chamber_temperature_override");
         optgroup->append_single_option_line("disable_chamber_cooling");

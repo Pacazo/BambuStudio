@@ -786,6 +786,9 @@ struct WipeTowerData
     // Cache of tool changes per print layer.
     std::unique_ptr<std::vector<WipeTower::ToolChangeResult>> priming;
     std::vector<std::vector<WipeTower::ToolChangeResult>> tool_changes;
+    // The same tool changes with the purge after parking for the minimum layer time printed in the room every layer keeps
+    // for it, empty without the minimum layer time.
+    std::vector<std::vector<WipeTower::ToolChangeResult>> park_tool_changes;
     std::unique_ptr<WipeTower::ToolChangeResult>          final_purge;
     std::vector<float>                                    used_filament;
     int                                                   number_of_toolchanges;
@@ -799,6 +802,7 @@ struct WipeTowerData
     void clear() {
         priming.reset(nullptr);
         tool_changes.clear();
+        park_tool_changes.clear();
         final_purge.reset(nullptr);
         used_filament.clear();
         number_of_toolchanges = -1;
@@ -1124,6 +1128,10 @@ public:
     std::vector<Polygons> get_extruder_unprintable_polygons() const;
     Polygons              get_extruder_shared_printable_polygon() const;
     bool                        enable_timelapse_print() const;
+    // Parking for the minimum layer time, which purges on the wipe tower, see park_min_layer_time.
+    bool                        park_min_layer_time() const;
+    // Print z up to which the wipe tower keeps room for a purge after parking, the layer after the highest one which may park.
+    coordf_t                    park_wipe_tower_top_z() const;
 
 	std::string                 output_filename(const std::string &filename_base = std::string()) const override;
 

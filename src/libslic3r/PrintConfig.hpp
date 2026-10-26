@@ -1744,6 +1744,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,               override_bed_temperature))
     ((ConfigOptionInt,                bed_temperature_override))
     ((ConfigOptionInt,                start_delay))
+    ((ConfigOptionFloat,              park_min_layer_time))
     ((ConfigOptionBool,               farthest_point_timelapse))
     ((ConfigOptionFloat,              default_jerk))
     ((ConfigOptionFloat,              outer_wall_jerk))

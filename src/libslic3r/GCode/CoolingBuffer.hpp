@@ -10,11 +10,18 @@ class CoolingBuffer
 public:
     CoolingBuffer(){};
 
-    float calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments);
+    // park_layer_time > 0: a layer shorter than this even at the minimum print speed is not slowed down, the print head parks
+    // for the rest of the time.
+    float calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time = 0.f);
+
+    // Results of the last calculate_layer_slowdown() call.
+    // Time the print head parks after the layer, 0 if it does not park.
+    float park_time() const { return m_park_time; }
 
 private:
     // Old logic: proportional.
     bool m_cooling_logic_proportional = false;
+    float m_park_time = 0.f;
 };
 
 }

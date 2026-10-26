@@ -6258,6 +6258,22 @@ void PrintConfigDef::init_fff_params()
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionInt(0));
 
+    def = this->add("park_min_layer_time", coFloat);
+    def->label = L("Minimum layer time");
+    def->tooltip = L("When a layer prints faster than this time even when slowed down to the minimum print speed, it is printed "
+                     "at normal speed instead, and the print head then parks next to the prime tower and waits for the rest of the time. "
+                     "The next layer starts with a purge on the prime tower, as after a filament change. "
+                     "Other layers are slowed down as usual to reach the layer time of the filament. "
+                     "It needs the prime tower, which is then printed on every plate up to the layer after the last one that may wait, "
+                     "keeping room for a purge in every layer; layers that do not follow a wait fill that room like the rest of the tower. "
+                     "Generating the G-code is slower when this option is on, because each layer is generated after the time of the "
+                     "previous one is known. 0 disables it.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
     def = this->add("farthest_point_timelapse", coBool);
     def->label = L("Farthest point timelapse");
     def->tooltip = L("When enabled, the timelapse snapshot is taken at the farthest point from camera "
@@ -8934,13 +8950,17 @@ t_config_option_keys DynamicPrintConfig::normalize_fdm_2(int num_objects, int us
         ConfigOptionBool *enable_wrapping_opt = this->option<ConfigOptionBool>("enable_wrapping_detection");
         bool enable_wrapping = enable_wrapping_opt != nullptr && enable_wrapping_opt->value;
 
+        // The minimum layer time for parking purges on the wipe tower, which it needs on every plate.
+        ConfigOptionFloat *park_opt = this->option<ConfigOptionFloat>("park_min_layer_time");
+        bool park = park_opt != nullptr && park_opt->value > 0.;
+
         bool has_mixed_filament = false;
         {
             auto *mixed_opt = this->option<ConfigOptionBools>("filament_is_mixed");
             if (mixed_opt)
                 has_mixed_filament = has_any_mixed_filament(mixed_opt->values);
         }
-        if (!is_smooth_timelapse && !enable_wrapping
+        if (!is_smooth_timelapse && !enable_wrapping && !park
             && (  (used_filaments == 1 && !has_mixed_filament)
                 || (ps_opt->value == PrintSequence::ByObject && num_objects > 1))) {
             if (ept_opt->value) {

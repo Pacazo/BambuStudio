@@ -4120,6 +4120,9 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         if (dconfig.has("enable_wrapping_detection")) {
             need_wipe_tower |= dynamic_cast<const ConfigOptionBool*>(dconfig.option("enable_wrapping_detection"))->value;
         }
+        // The minimum layer time for parking purges on the wipe tower.
+        if (dconfig.has("park_min_layer_time"))
+            need_wipe_tower |= dconfig.opt_float("park_min_layer_time") > 0.;
 
         if (wt && (need_wipe_tower || filaments_count > 1) && !wxGetApp().plater()->only_gcode_mode() && !wxGetApp().plater()->is_gcode_3mf()) {
             for (int plate_id = 0; plate_id < n_plates; plate_id++) {

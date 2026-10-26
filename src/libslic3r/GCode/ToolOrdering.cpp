@@ -470,7 +470,7 @@ void ToolOrdering::sort_and_build_data(const Print& print, unsigned int first_ex
 
     this->collect_extruder_statistics(prime_multi_material);
 
-    this->fill_wipe_tower_partitions(print.config(), object_bottom_z, max_layer_height);
+    this->fill_wipe_tower_partitions(print.config(), object_bottom_z, max_layer_height, print.park_wipe_tower_top_z());
 
     this->calc_most_used_extruder(print.config());
 }
@@ -1205,7 +1205,7 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
 }
 
 
-void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height)
+void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height, coordf_t park_top_z)
 {
     if (m_layer_tools.empty())
         return;
@@ -1236,7 +1236,7 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
     }
 
     for (LayerTools &lt : m_layer_tools) {
-        const bool tower_needed = config.timelapse_type == TimelapseType::tlSmooth || lt.wipe_tower_partitions > 0;
+        const bool tower_needed = config.timelapse_type == TimelapseType::tlSmooth || lt.print_z < park_top_z + EPSILON || lt.wipe_tower_partitions > 0;
         // Below the object bottom sit raft layers and, with multi-diameter adaptive merging, empty grid layers
         // swallowed by the first band. They only carry the tower down to the bed when a tower is needed at all;
         // wipe_tower_partitions was propagated downwards above, so any tool change higher up reaches them.

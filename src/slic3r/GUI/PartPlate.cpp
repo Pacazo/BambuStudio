@@ -2374,7 +2374,10 @@ Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, con
     //const DynamicPrintConfig &dconfig = wxGetApp().preset_bundle->prints.get_edited_preset().config;
     auto timelapse_type    = config.option<ConfigOptionEnum<TimelapseType>>("timelapse_type");
     bool smooth_timelapse = timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false;
-    bool need_wipe_tower = smooth_timelapse | enable_wrapping_detection;
+    // The minimum layer time for parking keeps room for a purge in every layer of the wipe tower.
+    const ConfigOption *park_opt = config.option("park_min_layer_time");
+    bool park = park_opt && park_opt->getFloat() > 0.;
+    bool need_wipe_tower = smooth_timelapse | enable_wrapping_detection | park;
     double extra_spacing     = config.option("prime_tower_infill_gap")->getFloat() / 100.;
     const ConfigOptionBool* use_rib_wall_opt = config.option<ConfigOptionBool>("prime_tower_rib_wall");
     bool use_rib_wall = use_rib_wall_opt ? use_rib_wall_opt->value: true;
@@ -2398,6 +2401,7 @@ Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, con
     // does not force this in Print::wipe_tower_data(), so it must not force it here either.
     int filament_depth_count = extruder_count == 2 ? plate_extruder_size : (plate_extruder_size - 1);
     if (!legacy_behavior && plate_extruder_size == 1 && smooth_timelapse) filament_depth_count = 1;
+    if (park) filament_depth_count += 1;
     double volume = wipe_volume * filament_depth_count;
     if (extruder_count == 2) volume += filament_change_volume * (int) (plate_extruder_size / 2);
 

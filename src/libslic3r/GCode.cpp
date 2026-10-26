@@ -1501,21 +1501,25 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         double wipe_tower_z  = -1;
         bool   ignore_sparse = false;
         if (m_sparse_layers_skipped) {
-            ignore_sparse = wipe_tower_layer_is_sparse(m_tool_changes[m_layer_idx]);
+            ignore_sparse = wipe_tower_layer_is_sparse(layer_tool_changes());
             wipe_tower_z  = m_compacted_tower_z[m_layer_idx];
         }
 
         if ((m_enable_timelapse_print || m_enable_wrapping_detection) && m_is_first_print) {
-            gcode += append_tcr(gcodegen, m_tool_changes[m_layer_idx][0], m_tool_changes[m_layer_idx][0].new_tool, wipe_tower_z);
+            gcode += append_tcr(gcodegen, layer_tool_changes()[0], layer_tool_changes()[0].new_tool, wipe_tower_z);
             m_tool_change_idx++;
             m_is_first_print = false;
         }
 
         if (gcodegen.writer().need_toolchange(extruder_id) || finish_layer) {
-            if (!(size_t(m_tool_change_idx) < m_tool_changes[m_layer_idx].size())) throw Slic3r::RuntimeError("Wipe tower generation failed, possibly due to empty first layer.");
+            // The purge after parking was the only block of the layer and it was printed already.
+            if (m_prime_after_park_layer_idx == m_layer_idx && !gcodegen.writer().need_toolchange(extruder_id) &&
+                size_t(m_tool_change_idx) >= layer_tool_changes().size())
+                return gcode;
+            if (!(size_t(m_tool_change_idx) < layer_tool_changes().size())) throw Slic3r::RuntimeError("Wipe tower generation failed, possibly due to empty first layer.");
 
             if (!ignore_sparse)
-                gcode += append_tcr(gcodegen, m_tool_changes[m_layer_idx][m_tool_change_idx++], extruder_id, wipe_tower_z);
+                gcode += append_tcr(gcodegen, layer_tool_changes()[m_tool_change_idx++], extruder_id, wipe_tower_z);
         }
 
         return gcode;
@@ -1531,7 +1535,7 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
 
         bool   ignore_sparse = false;
         if (m_sparse_layers_skipped) {
-            ignore_sparse = wipe_tower_layer_is_sparse(m_tool_changes[m_layer_idx]);
+            ignore_sparse = wipe_tower_layer_is_sparse(layer_tool_changes());
         }
 
         if ((m_enable_timelapse_print || m_enable_wrapping_detection) && m_is_first_print) {
@@ -1539,7 +1543,11 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         }
 
         if (gcodegen.writer().need_toolchange(extruder_id) || finish_layer) {
-            if (!(size_t(m_tool_change_idx) < m_tool_changes[m_layer_idx].size()))
+            // The purge after parking was the only block of the layer and it was printed already.
+            if (m_prime_after_park_layer_idx == m_layer_idx && !gcodegen.writer().need_toolchange(extruder_id) &&
+                size_t(m_tool_change_idx) >= layer_tool_changes().size())
+                return true;
+            if (!(size_t(m_tool_change_idx) < layer_tool_changes().size()))
                 throw Slic3r::RuntimeError("Wipe tower generation failed, possibly due to empty first layer.");
 
             if (!ignore_sparse) {
@@ -1548,6 +1556,47 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         }
 
         return true;
+    }
+
+    std::string WipeTowerIntegration::prime_after_park(GCode &gcodegen)
+    {
+        std::string gcode;
+        if (m_layer_idx < 0 || m_layer_idx >= (int) m_tool_changes.size())
+            return gcode;
+        const std::vector<WipeTower::ToolChangeResult> &layer = layer_tool_changes();
+        double wipe_tower_z = m_sparse_layers_skipped ? m_compacted_tower_z[m_layer_idx] : -1.;
+
+        // The purge is planned first in the layer, after the timelapse wall that tool_change() prints first.
+        size_t idx = m_tool_change_idx;
+        if ((m_enable_timelapse_print || m_enable_wrapping_detection) && m_is_first_print)
+            ++idx;
+        if (idx >= layer.size() || !layer[idx].is_prime_only)
+            return gcode;
+
+        if ((m_enable_timelapse_print || m_enable_wrapping_detection) && m_is_first_print) {
+            gcode += append_tcr(gcodegen, layer[0], layer[0].new_tool, wipe_tower_z);
+            m_tool_change_idx++;
+            m_is_first_print = false;
+        }
+        gcode += append_tcr(gcodegen, layer[m_tool_change_idx], layer[m_tool_change_idx].new_tool, wipe_tower_z);
+        m_tool_change_idx++;
+        m_prime_after_park_layer_idx = m_layer_idx;
+        return gcode;
+    }
+
+    Vec2d WipeTowerIntegration::park_position(const GCode &gcodegen) const
+    {
+        // Wipe tower bounding box in plate coordinates.
+        const float   alpha = m_wipe_tower_rotation / 180.f * float(M_PI);
+        BoundingBoxf  tower;
+        for (const Vec2d &corner : { m_wipe_tower_bbx.min, Vec2d(m_wipe_tower_bbx.max.x(), m_wipe_tower_bbx.min.y()), m_wipe_tower_bbx.max,
+                                     Vec2d(m_wipe_tower_bbx.min.x(), m_wipe_tower_bbx.max.y()) })
+            tower.merge((Eigen::Rotation2Df(alpha) * corner.cast<float>() + m_wipe_tower_pos + m_rib_offset).cast<double>());
+        // Park a few millimetres right of the tower, or left of it when the right side is out of the bed.
+        constexpr double gap   = 5.;
+        const BoundingBoxf bed = get_extents(gcodegen.config().printable_area.values);
+        const double       x   = tower.max.x() + gap < bed.max.x() ? tower.max.x() + gap : tower.min.x() - gap;
+        return Vec2d(x, tower.center().y());
     }
 
     // Print is finished. Now it remains to unload the filament safely with ramming over the wipe tower.
@@ -1981,6 +2030,23 @@ BoundingBoxf GCode::first_layer_projection(const Print& print) const
 
     bbox.merge(initial_layer_bbox);
     return bbox;
+}
+
+// Marker of the wait at the park position, replaced by the wait once the cooling knows the layer time.
+static const std::string park_time_marker = ";_PARK_TIME_\n";
+
+static void replace_park_time_marker(std::string &gcode, float park_time)
+{
+    size_t pos = gcode.find(park_time_marker);
+    if (pos == std::string::npos)
+        return;
+    std::string wait;
+    if (park_time > 0.f) {
+        char buf[64];
+        sprintf(buf, "M400 P%ld ; wait for the minimum layer time\n", std::lround(park_time * 1000.f));
+        wait = buf;
+    }
+    gcode.replace(pos, park_time_marker.size(), wait);
 }
 
 void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb)
@@ -3481,7 +3547,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             // Prusa Multi-Material wipe tower.
             if (has_wipe_tower && !layers_to_print.empty()) {
                 m_wipe_tower.reset(new WipeTowerIntegration(print.config(), print.get_plate_index(), print.get_plate_origin(), *print.wipe_tower_data().priming.get(),
-                                                            print.wipe_tower_data().tool_changes, *print.wipe_tower_data().final_purge.get(), print.get_slice_used_filaments(false)));
+                                                            print.wipe_tower_data().tool_changes, *print.wipe_tower_data().final_purge.get(), print.get_slice_used_filaments(false),
+                                                            print.wipe_tower_data().park_tool_changes));
                 m_wipe_tower->set_wipe_tower_depth(print.get_wipe_tower_depth());
                 m_wipe_tower->set_wipe_tower_bbx(print.get_wipe_tower_bbx());
                 m_wipe_tower->set_rib_offset(print.get_rib_offset());
@@ -3897,9 +3964,26 @@ void GCode::process_layers(
 
     CoolingBuffer cooling_processor;
 
+    // Minimum layer time: a layer shorter than it is not slowed down, the print head parks next to the wipe tower before the next
+    // layer, which then starts with the wait and a purge on the wipe tower. The cooling of a layer decides it before the next one
+    // is generated, so the layers go through the pipeline one at a time.
+    const float           park_layer_time          = m_wipe_tower ? float(m_config.park_min_layer_time.value) : 0.f;
+    const size_t          max_tokens               = park_layer_time > 0.f ? 1 : 12;
+    float                 park_time_after_previous = 0.f;
+
     const auto cooling = tbb::make_filter<GCode::LayerResult, GCode::LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-    [&cooling_processor, &layers_extruder_adjustments](GCode::LayerResult in) -> GCode::LayerResult {
-        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos]);
+    [this, &cooling_processor, &layers_extruder_adjustments, &layers_to_print, &tool_ordering, park_layer_time, &park_time_after_previous](GCode::LayerResult in) -> GCode::LayerResult {
+        if (in.gcode.empty()) {
+            in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos]);
+            return std::move(in);
+        }
+        // The print head can park only when the next layer has the wipe tower to purge on.
+        const bool park_after = park_layer_time > 0.f && in.gcode_store_pos + 1 < layers_to_print.size() &&
+                                tool_ordering.tools_for_layer(layers_to_print[in.gcode_store_pos + 1].first).has_wipe_tower;
+        in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos], park_after ? park_layer_time : 0.f);
+        in.park_time  = park_time_after_previous;
+        park_time_after_previous = cooling_processor.park_time();
+        m_park_next_layer        = cooling_processor.park_time() > 0.f;
          return std::move(in);
     });
 
@@ -3916,7 +4000,9 @@ void GCode::process_layers(
     // step 5: rewite
     const auto write_gocde= tbb::make_filter<GCode::LayerResult, std::string>(slic3r_tbb_filtermode::serial_in_order,
     [&gcode_editer = *this->m_gcode_editer.get(), &layers_extruder_adjustments](GCode::LayerResult in) -> std::string {
-         return gcode_editer.write_layer_gcode(std::move(in.gcode), in.not_set_additional_fan, in.layer_id, in.layer_time, layers_extruder_adjustments[in.gcode_store_pos]);
+         std::string gcode = gcode_editer.write_layer_gcode(std::move(in.gcode), in.not_set_additional_fan, in.layer_id, in.layer_time, layers_extruder_adjustments[in.gcode_store_pos]);
+         replace_park_time_marker(gcode, in.park_time);
+         return gcode;
     });
 
     std::vector<GCode::LayerResult> gcode_res;
@@ -3942,11 +4028,11 @@ void GCode::process_layers(
     // BBS: apply cooling
     // The pipeline elements are joined using const references, thus no copying is performed.
     if (m_spiral_vase)
-        tbb::parallel_pipeline(12, generator & spiral_mode & parsing & cooling & write_gocde & output);
+        tbb::parallel_pipeline(max_tokens, generator & spiral_mode & parsing & cooling & write_gocde & output);
     else if (!m_config.z_direction_outwall_speed_continuous)
-        tbb::parallel_pipeline(12, generator & parsing & cooling & write_gocde & output);
+        tbb::parallel_pipeline(max_tokens, generator & parsing & cooling & write_gocde & output);
     else {
-        tbb::parallel_pipeline(12, generator & parsing & cooling & build_node);
+        tbb::parallel_pipeline(max_tokens, generator & parsing & cooling & build_node);
         std::string message;
         message = _L("Smoothing z direction speed");
         m_print->set_status(85, message);
@@ -3962,9 +4048,8 @@ void GCode::process_layers(
         smooth_calculator.smooth_layer_speed();
         message = _L("Exporting G-code");
         m_print->set_status(90, message);
-        tbb::parallel_pipeline(12, calculate_layer_time & write_gocde & output);
+        tbb::parallel_pipeline(max_tokens, calculate_layer_time & write_gocde & output);
     }
-
 }
 
 // Process all layers of a single object instance (sequential mode) with a parallel pipeline:
@@ -4958,6 +5043,7 @@ GCode::LayerResult GCode::process_layer(
     const Layer& layer = *layer_ptr;
     m_cur_layer_idx = layer.id();
     GCode::LayerResult   result { {}, layer.id(), false, last_layer };
+    result.print_z = layer.print_z;
     if (layer_tools.extruders.empty())
         // Nothing to extrude.
         return result;
@@ -5665,6 +5751,17 @@ GCode::LayerResult GCode::process_layer(
             }
         }
     }
+
+    // Minimum layer time: when the cooling of the previous layer decided to park, park next to the wipe tower for the rest of
+    // the time, then purge on the room this layer of the wipe tower keeps for it.
+    if (has_wipe_tower) {
+        m_wipe_tower->set_park_layer(m_park_next_layer);
+        if (m_park_next_layer) {
+            gcode += this->park_for_min_layer_time(print, print_z);
+            gcode += m_wipe_tower->prime_after_park(*this);
+        }
+    }
+    m_park_next_layer = false;
 
     // Extrude the skirt, brim, support, perimeters, infill ordered by the extruders.
     for (unsigned int extruder_id : layer_tools.extruders)
@@ -6470,6 +6567,48 @@ std::string GCode::preamble()
 }
 
 // called by GCode::process_layer()
+std::string GCode::park_for_min_layer_time(const Print &print, coordf_t print_z)
+{
+    std::string gcode;
+    // Retract and lift like before a timelapse photo.
+    ZHopType z_hop_type = ZHopType(FILAMENT_CONFIG(z_hop_types));
+    LiftType lift_type  = (z_hop_type == ZHopType::zhtAuto || z_hop_type == ZHopType::zhtSpiral || z_hop_type == ZHopType::zhtSlope) ?
+                              LiftType::SpiralLift : LiftType::NormalLift;
+    gcode += this->retract(false, false, lift_type, true);
+    m_writer.add_object_change_labels(gcode);
+
+    // Wait next to the wipe tower above the layer about to be printed, inside the printable area of the nozzle in use.
+    BoundingBoxf printable = get_extents(m_config.printable_area.values);
+    if (m_config.nozzle_diameter.size() > 1 && m_writer.filament() != nullptr) {
+        size_t extruder_id = m_writer.filament()->extruder_id();
+        if (extruder_id < m_config.extruder_printable_area.values.size() && !m_config.extruder_printable_area.values[extruder_id].empty())
+            printable = get_extents(m_config.extruder_printable_area.values[extruder_id]);
+    }
+    constexpr double margin = 2.;
+    Vec2d park = m_wipe_tower->park_position(*this);
+    park.x() = std::clamp(park.x(), printable.min.x() + margin, std::max(printable.min.x() + margin, printable.max.x() - margin));
+    park.y() = std::clamp(park.y(), printable.min.y() + margin, std::max(printable.min.y() + margin, printable.max.y() - margin));
+
+    constexpr double park_lift = 2.;
+    const double     park_z    = std::max(m_writer.get_position().z(), print_z) + park_lift;
+    char buf[128];
+    sprintf(buf, "G1 Z%.3f F1200 ; park for the minimum layer time\n", park_z);
+    gcode += buf;
+    sprintf(buf, "G1 X%.3f Y%.3f F%d\n", park.x(), park.y(), int(m_config.travel_speed.get_at(0) * 60.));
+    gcode += buf;
+    gcode += park_time_marker;
+
+    // Like after a custom G-code: the next travel, to the purge on the wipe tower, writes both X and Y at the park
+    // height, then lowers Z.
+    m_writer.set_current_position_clear(false);
+    Vec3d position = m_writer.get_position();
+    position.z()   = park_z;
+    m_writer.set_position(position);
+    const Vec3d plate_origin = print.get_plate_origin();
+    this->set_last_pos(Point(scale_(park.x() + plate_origin.x() - m_origin.x()), scale_(park.y() + plate_origin.y() - m_origin.y())));
+    return gcode;
+}
+
 std::string GCode::change_layer(coordf_t print_z)
 {
     std::string gcode;

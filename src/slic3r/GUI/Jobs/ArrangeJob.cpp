@@ -85,7 +85,7 @@ static bool plate_allows_wipe_tower(PartPlate *pl)
     return pl->printable_instance_size() == 1;
 }
 
-// Smooth timelapse / wrapping detection always needs a tower, even single-color.
+// Smooth timelapse / wrapping detection / parking for the minimum layer time always need a tower, even single-color.
 static bool wipe_tower_is_mandatory()
 {
     const DynamicPrintConfig &cfg = wxGetApp().preset_bundle->prints.get_edited_preset().config;
@@ -93,6 +93,9 @@ static bool wipe_tower_is_mandatory()
     if (sop && sop->getInt() == TimelapseType::tlSmooth)
         return true;
     if (cfg.has("enable_wrapping_detection") && cfg.opt_bool("enable_wrapping_detection"))
+        return true;
+    // The minimum layer time for parking purges on the wipe tower.
+    if (cfg.has("park_min_layer_time") && cfg.opt_float("park_min_layer_time") > 0.)
         return true;
     return false;
 }
