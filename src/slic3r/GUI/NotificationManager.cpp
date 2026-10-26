@@ -2072,6 +2072,9 @@ void NotificationManager::push_slicing_warning_notification(const std::string& t
 	} else if (warning_msg_id == PrintStateBase::SlicingSupportIncomplete) {
 		jump_opt_key = "support_type";
 		jump_link    = _u8L("Jump to: Support");
+	} else if (warning_msg_id == PrintStateBase::SlicingLayerTimeNotReached) {
+		jump_opt_key = "park_min_layer_time";
+		jump_link    = _u8L("Jump to: Minimum layer time");
 	}
 
 	std::function<bool(wxEvtHandler*)> callback;

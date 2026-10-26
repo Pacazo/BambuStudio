@@ -17,11 +17,14 @@ public:
     // Results of the last calculate_layer_slowdown() call.
     // Time the print head parks after the layer, 0 if it does not park.
     float park_time() const { return m_park_time; }
+    // The layer could not be slowed down to the layer time of the filament, because the minimum print speed was reached.
+    bool  layer_time_not_reached() const { return m_layer_time_not_reached; }
 
 private:
     // Old logic: proportional.
     bool m_cooling_logic_proportional = false;
-    float m_park_time = 0.f;
+    float m_park_time              = 0.f;
+    bool  m_layer_time_not_reached = false;
 };
 
 }

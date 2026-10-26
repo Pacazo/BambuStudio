@@ -3970,9 +3970,11 @@ void GCode::process_layers(
     const float           park_layer_time          = m_wipe_tower ? float(m_config.park_min_layer_time.value) : 0.f;
     const size_t          max_tokens               = park_layer_time > 0.f ? 1 : 12;
     float                 park_time_after_previous = 0.f;
+    std::vector<coordf_t> layer_time_not_reached_z;
 
     const auto cooling = tbb::make_filter<GCode::LayerResult, GCode::LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-    [this, &cooling_processor, &layers_extruder_adjustments, &layers_to_print, &tool_ordering, park_layer_time, &park_time_after_previous](GCode::LayerResult in) -> GCode::LayerResult {
+    [this, &cooling_processor, &layers_extruder_adjustments, &layers_to_print, &tool_ordering, park_layer_time, &park_time_after_previous,
+     &layer_time_not_reached_z](GCode::LayerResult in) -> GCode::LayerResult {
         if (in.gcode.empty()) {
             in.layer_time = cooling_processor.calculate_layer_slowdown(layers_extruder_adjustments[in.gcode_store_pos]);
             return std::move(in);
@@ -3984,6 +3986,8 @@ void GCode::process_layers(
         in.park_time  = park_time_after_previous;
         park_time_after_previous = cooling_processor.park_time();
         m_park_next_layer        = cooling_processor.park_time() > 0.f;
+        if (cooling_processor.layer_time_not_reached())
+            layer_time_not_reached_z.push_back(in.print_z);
          return std::move(in);
     });
 
@@ -4049,6 +4053,23 @@ void GCode::process_layers(
         message = _L("Exporting G-code");
         m_print->set_status(90, message);
         tbb::parallel_pipeline(max_tokens, calculate_layer_time & write_gocde & output);
+    }
+
+    // Layers that could not be slowed down enough to reach the layer time of the filament.
+    if (!layer_time_not_reached_z.empty()) {
+        std::string heights;
+        const size_t max_heights = 10;
+        for (size_t i = 0; i < std::min(layer_time_not_reached_z.size(), max_heights); ++i)
+            heights += (i == 0 ? "" : ", ") + Slic3r::float_to_string_decimal_point(layer_time_not_reached_z[i], 2);
+        if (layer_time_not_reached_z.size() > max_heights)
+            heights += ", ...";
+        std::string warning = Slic3r::format(_(L("%1% layers are shorter than the layer time of the filament even at the minimum print speed, "
+                                                 "so they cool less than set. Heights: %2% mm.")),
+                                             layer_time_not_reached_z.size(), heights);
+        if (m_config.park_min_layer_time.value <= 0.)
+            warning += "\n" + _(L("The minimum layer time option can make the print head wait instead."));
+        const_cast<Print&>(print).active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL, warning,
+                                                          PrintStateBase::SlicingLayerTimeNotReached);
     }
 }
 

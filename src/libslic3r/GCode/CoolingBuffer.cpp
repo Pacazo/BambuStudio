@@ -258,7 +258,8 @@ static inline void extruder_range_slow_down_non_proportional(std::vector<PerExtr
 // Calculate slow down for all the extruders.
 float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time)
 {
-    m_park_time = 0.f;
+    m_park_time              = 0.f;
+    m_layer_time_not_reached = false;
 
     if (park_layer_time > 0.f) {
         // A layer shorter than the minimum layer time for parking even when slowed down to the minimum print speed is
@@ -362,6 +363,7 @@ float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments
             } else {
                 // Slow down to maximum possible.
                 for (auto it = cur_begin; it != by_slowdown_time.end(); ++it) (*it)->slowdown_to_minimum_feedrate(true);
+                m_layer_time_not_reached = true;
             }
         }
         elapsed_time_total0 += adj.elapsed_time_total();
