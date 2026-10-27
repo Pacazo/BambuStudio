@@ -714,7 +714,7 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
     // maximum flow
     auto end_sizer = new wxBoxSizer(wxHORIZONTAL);
     auto end_text = new wxStaticText(this, wxID_ANY, end_str, wxDefaultPosition, st_size, wxALIGN_LEFT);
-    m_tiEnd = new TextInput(this, std::to_string(30), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
+    m_tiEnd = new TextInput(this, std::to_string(60), _L("%"), "", wxDefaultPosition, ti_size, wxTE_CENTRE);
     m_tiEnd->GetTextCtrl()->SetValidator(wxTextValidator(wxFILTER_NUMERIC));
     end_sizer->Add(end_text, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);
     end_sizer->Add(m_tiEnd, 0, wxALL | wxALIGN_CENTER_VERTICAL, 2);

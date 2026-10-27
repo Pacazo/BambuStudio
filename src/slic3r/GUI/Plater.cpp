@@ -11122,8 +11122,12 @@ Plater::priv::~priv()
     main_frame->m_tabpanel->Unbind(wxEVT_NOTEBOOK_PAGE_CHANGING, &priv::on_tab_selection_changing, this);
 }
 
+static bool update_ironing_flow_names(Model &model, const Print *print, bool slicing);
+
 void Plater::priv::update(unsigned int flags)
 {
+    update_ironing_flow_names(model, background_process.fff_print(), false);
+
     // the following line, when enabled, causes flickering on NVIDIA graphics cards
 //    wxWindowUpdateLocker freeze_guard(q);
 #ifdef SUPPORT_AUTOCENTER
@@ -25340,6 +25344,74 @@ void Plater::calib_VFA(const Calib_Params &params)
     p->background_process.fff_print()->set_calib_params(params);
 }
 
+// filament name and product code of its colour
+static std::string ironing_flow_filament_name(size_t filament_idx)
+{
+    PresetBundle *bundle   = wxGetApp().preset_bundle;
+    const Preset *filament = filament_idx < bundle->filament_presets.size() ? bundle->filaments.find_preset(bundle->filament_presets[filament_idx]) : nullptr;
+    if (!filament)
+        return {};
+    std::string name = filament->name.substr(0, filament->name.find('@'));
+    boost::algorithm::trim(name);
+    const auto *colour       = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    const auto *multi_colour = bundle->project_config.option<ConfigOptionStrings>("filament_multi_colour");
+    const auto *colour_type  = bundle->project_config.option<ConfigOptionStrings>("filament_colour_type");
+    std::vector<wxString> hex_colours;
+    if (multi_colour && filament_idx < multi_colour->values.size())
+        for (const std::string &hex : Slic3r::split_string(multi_colour->values[filament_idx], ' '))
+            hex_colours.emplace_back(wxString::FromUTF8(hex));
+    if (hex_colours.empty() && colour && filament_idx < colour->values.size())
+        hex_colours.emplace_back(wxString::FromUTF8(colour->values[filament_idx]));
+    const int type = colour_type && filament_idx < colour_type->values.size() && colour_type->values[filament_idx] == "0" ? 0 : 1;
+    if (!filament->filament_id.empty() && !hex_colours.empty())
+        if (FilamentColorCode *code = wxGetApp().get_filament_color_code_query()->GetFilaInfo(wxString::FromUTF8(filament->filament_id), hex_colours, type))
+            name += " / " + code->GetFilaColorCode().ToStdString();
+    return name;
+}
+
+static const std::string ironing_flow_placeholder = "Ironing flow calibration test";
+
+// 2 base layers, 2 layers of marks and text, 1 ironed top layer
+static TriangleMesh ironing_flow_test_mesh(const Calib_Params &params, const std::string &name)
+{
+    const auto  &print_config       = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    const double first_layer_height = print_config.option<ConfigOptionFloat>("initial_layer_print_height")->value;
+    const double layer_height       = print_config.option<ConfigOptionFloat>("layer_height")->value;
+    const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);
+    return TriangleMesh(ironing_flow_calib_mesh(params.start, params.end, params.step, name, nozzle_diameter,
+                                                first_layer_height + layer_height, first_layer_height + 3. * layer_height,
+                                                first_layer_height + 4. * layer_height));
+}
+
+// name the ironing flow tests after their filaments when slicing, placeholder while not up to date
+static bool update_ironing_flow_names(Model &model, const Print *print, bool slicing)
+{
+    if (!print || print->calib_params().mode != CalibMode::Calib_Ironing_Flow)
+        return false;
+    bool changed = false;
+    for (ModelObject *object : model.objects) {
+        if (object->name != into_u8(_L("Ironing flow test")) || object->volumes.size() != 1)
+            continue;
+        ModelVolume *volume = object->volumes.front();
+        TriangleMesh mesh   = ironing_flow_test_mesh(print->calib_params(), ironing_flow_filament_name(size_t(std::max(volume->extruder_id(), 1) - 1)));
+        if (mesh.its.vertices == volume->mesh().its.vertices)
+            continue;
+        if (!slicing) {
+            mesh = ironing_flow_test_mesh(print->calib_params(), ironing_flow_placeholder);
+            if (mesh.its.vertices == volume->mesh().its.vertices)
+                continue;
+        }
+        volume->set_mesh(std::move(mesh));
+        volume->set_new_unique_id();
+        volume->calculate_convex_hull();
+        volume->invalidate_convex_hull_2d();
+        object->invalidate_bounding_box();
+        object->ensure_on_bed();
+        changed = true;
+    }
+    return changed;
+}
+
 void Plater::calib_ironing_flow(const Calib_Params &params)
 {
     model().calib_pa_pattern.reset(nullptr);
@@ -25390,15 +25462,9 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
     if (!layer_preset_selected)
         print_config->set_key_value("layer_height", new ConfigOptionFloat(calib_layer_height));
     print_config->set_key_value("enable_wrapping_detection", new ConfigOptionBool(false));
+    print_config->set_key_value("print_sequence", new ConfigOptionEnum<PrintSequence>(PrintSequence::ByObject));
 
-    // 2 base layers, 2 layers of marks and 1 ironed top layer
-    const double first_layer_height = print_config->option<ConfigOptionFloat>("initial_layer_print_height")->value;
-    const double layer_height       = print_config->option<ConfigOptionFloat>("layer_height")->value;
-    const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);
-    TriangleMesh mesh(ironing_flow_calib_mesh(params.start, params.end, params.step, nozzle_diameter,
-                                              first_layer_height + layer_height, first_layer_height + 3. * layer_height,
-                                              first_layer_height + 4. * layer_height));
-    sidebar().obj_list()->load_mesh_object(mesh, _L("Ironing flow test"), true);
+    sidebar().obj_list()->load_mesh_object(ironing_flow_test_mesh(params, ironing_flow_placeholder), _L("Ironing flow test"), true);
     auto obj = model().objects[0];
     obj->config.set_key_value("ironing_type", new ConfigOptionEnum<IroningType>(IroningType::TopmostOnly));
     obj->config.set_key_value("ironing_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
@@ -28108,6 +28174,9 @@ void Plater::reslice()
 
     // Stop arrange and (or) optimize rotation tasks.
     this->stop_jobs();
+
+    if (update_ironing_flow_names(p->model, p->background_process.fff_print(), true))
+        p->update();
 
     // softfever: regenerate CalibPressureAdvancePattern custom G-code to apply changes
     if (model().calib_pa_pattern) {
