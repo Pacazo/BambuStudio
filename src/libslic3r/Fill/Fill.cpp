@@ -329,22 +329,18 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 		                params.flow = layerm.bridging_flow(extrusion_role, false);
 		        }
 
-				// Minimum line width of the bottom surface printed on the support or raft interface, only without a Z gap
-				// to it (see MinLineWidthOnInterface.hpp): on a raft that is the first object layer (its id counts the raft
-				// layers, so test lower_layer), above supports the bottom surfaces. Without a gap the surfaces resting on
-				// the support are stBottom (zero-gap contacts, GitHub #11540) or stBottomBridge (detect_surfaces_type()
-				// cannot tell those from the other bridges, as supports are generated after the infill).
+				// min_line_width_on_interface: bottom surface on the support or raft interface, without a Z gap to it
 				const float min_width_on_interface = float(object_config.min_line_width_on_interface.value * 0.01 * params.flow.nozzle_diameter());
 				const bool  on_interface = min_width_on_interface > 0.f && surface.is_bottom() &&
 					(layer.lower_layer == nullptr ? min_line_width_on_raft_interface(object_config) :
 					                                min_line_width_on_support_interface(object_config));
 				if (on_interface) {
 					if (params.flow.bridge()) {
-						// Thick bridge: a round extrusion, its diameter is the line width
+						// thick bridge: its diameter is the line width
 						if (params.flow.width() < min_width_on_interface)
 							params.flow = Flow::bridging_flow(min_width_on_interface, params.flow.nozzle_diameter());
 					} else {
-						// Widen the nominal line, then apply the bridge flow ratio as layerm.bridging_flow() does
+						// widen the nominal line, then apply the bridge flow ratio as layerm.bridging_flow() does
 						Flow nominal = params.bridge ? layerm.region().flow(*layer.object(), extrusion_role, surface_height,
 						                                                    layer.id() == 0 || starts_at_object_base) :
 						                               params.flow;
@@ -1006,8 +1002,7 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
 }
 
 
-// Ironing flow calibration: append the ironing polylines as paths whose flow grows linearly with X,
-// from calib.start % at x_start to calib.end % at x_end. height_per_percent is the extrusion height of 1 % ironing flow.
+// Ironing flow calibration: the flow grows linearly from calib.start % at x_start to calib.end % at x_end
 static void extrusion_entities_append_calib_ironing_paths(ExtrusionEntitiesPtr &dst, const Polylines &polylines, const Calib_Params &calib,
 	coord_t x_start, coord_t x_end, double height_per_percent, double nozzle_dmr)
 {
@@ -1116,8 +1111,7 @@ void Layer::make_ironing()
 	std::vector<IroningParams> by_extruder;
     double default_layer_height = this->object()->config().layer_height;
 
-	// Ironing flow calibration: iron across the part (lines along Y) from left to right, with the flow growing
-	// linearly from 5 mm after the left edge of the object to 5 mm before its right edge, and no ironing outside.
+	// ironing flow calibration: from 5 mm after the left edge to 5 mm before the right edge
 	const Calib_Params &calib              = this->object()->print()->calib_params();
 	const bool          calib_ironing_flow = calib.mode == CalibMode::Calib_Ironing_Flow;
 	const coord_t       calib_x_start      = this->object()->bounding_box().min.x() + coord_t(scale_(5.));
@@ -1154,9 +1148,7 @@ void Layer::make_ironing()
 				ironing_params.speed 		= config.ironing_speed;
 				ironing_params.angle 		= (int(config.ironing_direction.value+layerm->region().config().infill_direction.value)%180) * M_PI / 180.;
 				if (calib_ironing_flow)
-					// Fill::_infill_direction() adds 90 degrees, so this makes the rectilinear lines vertical
-					// and the ironing advances along X. The filler gets no layer_id below, so that the
-					// direction does not alternate between odd and even layers.
+					// lines along Y: Fill::_infill_direction() adds 90 degrees. No layer_id is set, so it does not alternate
 					ironing_params.angle = M_PI / 2.;
 				ironing_params.pattern      = config.ironing_pattern;
 				ironing_params.layerm 		= layerm;
@@ -1260,7 +1252,7 @@ void Layer::make_ironing()
 		}
 
 		if (calib_ironing_flow && ! ironing_areas.empty()) {
-			// Leave the first and last 5 mm unironed, and iron only the test band, not the ruler ticks.
+			// iron only the test band, not its first and last 5 mm nor the marks
 			const BoundingBox bbox = get_extents(ironing_areas);
 			const Polygon     clip({ Point(calib_x_start, bbox.min.y()), Point(calib_x_end, bbox.min.y()),
 			                         Point(calib_x_end, bbox.max.y()), Point(calib_x_start, bbox.max.y()) });
@@ -1294,7 +1286,7 @@ void Layer::make_ironing()
 		        // Don't sort the ironing infill lines as they are monotonicly ordered.
 				eec->no_sort = true;
 				if (calib_ironing_flow) {
-					// Run every polyline and the polylines themselves from left to right.
+					// from left to right
 					for (Polyline &polyline : polylines)
 						if (polyline.first_point().x() > polyline.last_point().x())
 							polyline.reverse();

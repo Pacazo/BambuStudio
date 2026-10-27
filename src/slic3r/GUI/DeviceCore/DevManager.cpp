@@ -305,9 +305,7 @@ namespace Slic3r
                 if (obj->connection_type().empty() && obj->bind_state.empty())
                     obj->bind_state = "free";
 
-                // A selected LAN machine whose connection failed or was lost is kept as offline (see
-                // set_on_local_connect_fn); reconnect it now that it announces itself again. Retry at most once
-                // a minute, so a printer that keeps refusing the connection is not retried on every broadcast.
+                // reconnect the selected offline LAN printer when it announces itself again, at most once a minute
                 const bool reconnect = !obj->m_is_online && dev_id == selected_machine &&
                                        obj->is_lan_mode_printer() && obj->has_access_right();
                 const auto now = std::chrono::steady_clock::now();
@@ -356,8 +354,6 @@ namespace Slic3r
                                         << ", bind_state= " << bind_state;
             }
 
-            // A printer announcing cloud mode used to lose its saved LAN access code and IP here. Keep them: a
-            // saved printer is only forgotten with the remove button.
         }
         catch (...) {
             BOOST_LOG_TRIVIAL(warning) << current_exception_message();
@@ -455,8 +451,7 @@ namespace Slic3r
 
         std::vector<LocalAccessInfo> local_access_infos;
         const auto slicer_uuid = config->get("slicer_uuid");
-        // Every printer with a saved IP is restored. The access code typed by the user comes first; the one saved on
-        // the last successful connection is the fallback, so a missing user_access_code entry no longer drops the printer.
+        // every printer with a saved IP, with the access code typed by the user, else the one of the last connection
         const auto user_access_dev_ips = config->get_section("user_access_dev_ip");
         for (const auto& user_access_dev_ip : user_access_dev_ips) {
             const auto& dev_id = user_access_dev_ip.first;

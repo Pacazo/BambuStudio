@@ -103,7 +103,7 @@ private:
     Label          *m_title   = nullptr;
     wxWindow       *m_divider = nullptr;
     Label          *m_desc    = nullptr;
-    Label          *m_desc_mark = nullptr; // red circle before a description written by this fork
+    Label          *m_desc_mark = nullptr; // red circle before a custom description
     wxStaticBitmap *m_image   = nullptr;
     wxWindow       *m_details = nullptr; // container for the bulleted detail rows
     Label          *m_note    = nullptr;

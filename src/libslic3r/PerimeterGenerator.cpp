@@ -619,8 +619,7 @@ static void detect_brigde_wall_arachne(const PerimeterGenerator &perimeter_gener
     }
 }
 
-// min_line_width_on_interface as an Arachne bead width, 0 when disabled. A junction width is the spacing of the line:
-// thick_polyline_to_multi_path() adds height * (1 - PI / 4) to get the extrusion width.
+// min_line_width_on_interface as an Arachne bead width (the line spacing), 0 when disabled
 static coord_t min_bead_width_on_interface(const PerimeterGenerator &perimeter_generator)
 {
     const double min_width = perimeter_generator.object_config->min_line_width_on_interface.value * 0.01 * perimeter_generator.perimeter_flow.nozzle_diameter();
@@ -638,10 +637,8 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
     if (perimeter_generator.print_config->z_direction_outwall_speed_continuous)
          extrusion_coll.loop_node_range.first = perimeter_generator.loop_nodes->size();
 
-    // min_line_width_on_interface: Arachne sets the width of every line itself, so the widened flows of
-    // LayerRegion::make_perimeters() do not reach it. On a raft the first object layer lies wholly on the raft
-    // interface, so all its lines are widened (the first object layer is the one without a lower layer); above
-    // supports only the overhang lines are. Only without a Z gap to the interface, see MinLineWidthOnInterface.hpp.
+    // min_line_width_on_interface: Arachne sets the line widths itself. Every line of the first layer on a raft,
+    // only the overhang lines above supports
     const coord_t min_bead_width       = min_bead_width_on_interface(perimeter_generator);
     const bool    widen_all_on_raft    = min_bead_width > 0 && perimeter_generator.lower_slices == nullptr &&
                                          min_line_width_on_raft_interface(*perimeter_generator.object_config);
@@ -1615,8 +1612,7 @@ void PerimeterGenerator::process_arachne()
                 if (const auto& min_bead_width_opt = object_config->min_bead_width)
                     input_params.min_bead_width = min_bead_width_opt.value * 0.01 * min_nozzle_diameter;
 
-                // The first object layer (no lower layer; with a raft layer_id counts the raft layers) lies on the raft
-                // interface: thin features no narrower than min_line_width_on_interface
+                // first layer on a raft: no thin feature narrower than min_line_width_on_interface
                 if (this->lower_slices == nullptr && min_line_width_on_raft_interface(*object_config))
                     input_params.min_bead_width = std::max<double>(input_params.min_bead_width,
                                                                    object_config->min_line_width_on_interface.value * 0.01 * min_nozzle_diameter);

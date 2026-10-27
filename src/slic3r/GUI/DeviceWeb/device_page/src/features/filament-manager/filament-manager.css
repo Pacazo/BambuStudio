@@ -69,10 +69,8 @@ th.sort-desc .fm-sort-icon::after { content: "\2193"; opacity: 1; }
 [data-theme="light"] .fm-ams-wrap-bg { background: #e8e8e8; }
 [data-theme="light"] .fm-slot-header-bg { background: #e0e0e0; color: #333; }
 
-/* ===== Bigger fonts (this fork) ===== */
-/* Every font size of the Filament Manager page, its dialogs and toasts (all rendered inside the page root) is
-   raised by about 2px, with the fixed line heights raised to match. Unlayered rules, so they win over the
-   Tailwind utilities. */
+/* ===== Bigger fonts ===== */
+/* About 2px larger, unlayered so that they win over the Tailwind utilities */
 :is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[10px\] { font-size: 12px; }
 :is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-\[11px\] { font-size: 13px; }
 :is([data-testid="filament-page-root"], [data-testid="filament-page-root"] *).text-xs,

@@ -105,10 +105,8 @@ wxDEFINE_EVENT(EVT_UPDATE_MACHINE_LIST, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_PRESET_CB, SimpleEvent);
 
 #ifdef __WXGTK__
-// F1-F12 without modifiers select the tab at that position in the tab bar.
-// GTK emits "event" on the top level window for every key press before passing it to the focused widget.
-// Switching tabs hides the focused widget and GTK leaves no widget focused, so wxEVT_CHAR_HOOK
-// would not come again until a click; a focused web page takes the key presses for itself too.
+// F1-F12 without modifiers select the tab at that position. Switching tabs leaves no widget focused,
+// so wxEVT_CHAR_HOOK does not come again: catch the keys on the top level window
 static gboolean mainframe_function_key_press(GtkWidget *, GdkEvent *event, gpointer data)
 {
     if (event->type != GDK_KEY_PRESS)
@@ -845,7 +843,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
             }
         }
 
-        // F1-F12 select the tab at that position in the tab bar. GTK gets them in mainframe_function_key_press().
+        // F1-F12 select the tab at that position, see mainframe_function_key_press() for GTK
         if (!evt.HasAnyModifiers() && key_code >= WXK_F1 && key_code <= WXK_F12) {
             select_tab_by_function_key(key_code - WXK_F1);
             return;
@@ -1333,7 +1331,7 @@ void MainFrame::show_calibration_button(bool show, bool is_BBL)
     if (shown2 == show)
         ;
     else if (show) {
-        // Calibration is the last tab; the Filament Manager sits right after Device.
+        // Calibration is the last tab
         m_tabpanel->InsertPage(m_tabpanel->GetPageCount(), m_calibration, _L("Calibration"),
                                std::string("tab_monitor_active"),
                                std::string("tab_monitor_active"), false);
@@ -1596,7 +1594,7 @@ void MainFrame::init_tabpanel()
     m_monitor->SetBackgroundColour(*wxWHITE);
     m_tabpanel->AddPage(m_monitor, _L("Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
-    // The Filament Manager comes right after Device, before Multi-device, Project and Calibration
+    // Filament Manager right after Device
     if (!wxGetApp().is_fila_manager_disabled()) {
         m_web_device = new DeviceWebPage(m_tabpanel);
         m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
@@ -4462,10 +4460,7 @@ void MainFrame::request_select_tab(TabPosition pos)
     wxQueueEvent(this, evt);
 }
 
-// F1-F12 select the tab at that position in the tab bar (F1 Home, F2 Prepare, F3 Preview, F4 Device, ...).
-// Positions follow the tabs actually shown, as optional tabs (Multi-device, Calibration, ...) shift the rest.
-// Posted as a click on the tab button, so the checks done on a click (preview-only hint, slice
-// version policy, Calibration refresh) run too.
+// Posted as a click on the tab button, so that the checks of a click run too
 void MainFrame::select_tab_by_function_key(int page)
 {
     if (page >= 0 && size_t(page) < m_tabpanel->GetPageCount() && m_tabpanel->GetSelection() != page) {
@@ -4930,7 +4925,7 @@ void MainFrame::update_ui_from_settings()
         tab->update_ui_from_settings();
 }
 
-// Red circles of the features of this fork in the main window, shown or hidden after the preference
+// Show or hide the custom marks of the main window
 void MainFrame::update_custom_marks()
 {
     const bool show = wxGetApp().show_custom_marks();
@@ -4940,7 +4935,7 @@ void MainFrame::update_custom_marks()
         if (page != wxNOT_FOUND)
             m_tabpanel->SetPageLabelMark(page, show ? wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */ : wxString(), wxColour(230, 0, 0));
     }
-    // Ironing flow calibration. wxGTK does not redraw the bitmap of an item already in a menu: insert it again.
+    // ironing flow calibration: wxGTK does not redraw the bitmap of a menu item, insert it again
     if (m_ironing_flow_menu_item && m_ironing_flow_menu_item->GetBitmap().IsOk() != show) {
         wxMenu*   menu = m_ironing_flow_menu_item->GetMenu();
         const int pos  = menu->GetMenuItems().IndexOf(m_ironing_flow_menu_item);

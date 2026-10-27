@@ -250,7 +250,7 @@ public:
         GetBtnsListCtrl()->SetPageToolTip(n, strToolTip);
     }
 
-    // Coloured character left of the tab label, e.g. the red circle marking a page changed by this fork
+    // Coloured character left of the tab label
     void SetPageLabelMark(size_t n, const wxString& mark, const wxColour& colour)
     {
         GetBtnsListCtrl()->SetPageLabelMark(n, mark, colour);
@@ -265,9 +265,8 @@ public:
     }
 
 #ifdef __WXGTK__
-    // GTK never moves the keyboard focus into the children of a container that can take the
-    // focus itself: every Tab pressed inside a page grabbed the focus for the whole notebook,
-    // so Tab could not move between parameter fields. Accept the focus only through the children.
+    // GTK never moves the focus into the children of a focusable container, so Tab could not move
+    // between the parameter fields: take the focus only through the children
     bool AcceptsFocus() const override { return false; }
     bool AcceptsFocusRecursively() const override
     {

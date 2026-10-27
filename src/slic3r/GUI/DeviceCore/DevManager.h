@@ -36,8 +36,7 @@ public:
     ~DeviceManager();
 
 public:
-    /* dev_ip moved onto the /24 subnet of the Wi-Fi interface, keeping its last byte; empty if there is no
-       Wi-Fi address or the result equals dev_ip */
+    /* dev_ip on the /24 subnet of the Wi-Fi interface, keeping its last byte; empty if none */
     static std::string get_auto_base_ip(const std::string& dev_ip);
 
     NetworkAgent* get_agent() const { return m_agent; }

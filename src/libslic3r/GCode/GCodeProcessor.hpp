@@ -316,6 +316,8 @@ namespace Slic3r {
         std::map<std::pair<int,int>, int > filament_change_count_map;
 
         std::unordered_map<SkipType, float> skippable_part_time;
+        // minutes waited before the start gcode, not included in print_statistics
+        int start_delay_min{ 0 };
 
         BedType bed_type = BedType::btCount;
 
@@ -371,6 +373,7 @@ namespace Slic3r {
             optimal_assignment = other.optimal_assignment;
             pause_printing = other.pause_printing;
             skippable_part_time = other.skippable_part_time;
+            start_delay_min = other.start_delay_min;
             used_filaments = other.used_filaments;
             used_mixed_filaments = other.used_mixed_filaments;
             directly_used_filaments        = other.directly_used_filaments;

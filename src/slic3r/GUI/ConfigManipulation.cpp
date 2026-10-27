@@ -1014,7 +1014,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
                     "support_remove_small_overhang","support_interface_not_for_body",
                     "support_object_xy_distance","support_object_first_layer_gap"/*, "independent_support_layer_height"*/})
         toggle_field(el, have_support_material);
-    // Presses the object onto the interface only when it touches it: no Z gap to the support or raft (MinLineWidthOnInterface.hpp)
+    // only without a Z gap to the support or raft
     toggle_field("min_line_width_on_interface",
                  (config->opt_bool("enable_support") && config->opt_float("support_top_z_distance") == 0) ||
                  (have_raft && (config->opt_float("support_top_z_distance") == 0 ||
@@ -1129,9 +1129,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
         toggle_line(el, has_height_slowdown, variant_index);
 
     bool has_chamber_override = config->has("override_chamber_temperature") && config->opt_bool("override_chamber_temperature");
-    // Shown grayed out instead of hidden.
     toggle_field("chamber_temperature_override", has_chamber_override);
-    // From 40 °C the chamber is heated, so its cooling is off anyway.
+    // from 40 °C the chamber is heated, its cooling is off anyway
     toggle_field("disable_chamber_cooling", has_chamber_override && config->opt_int("chamber_temperature_override") < 40);
     toggle_field("bed_temperature_override", config->has("override_bed_temperature") && config->opt_bool("override_bed_temperature"));
 

@@ -430,7 +430,7 @@ export function useFilamentManagerBridge() {
     const state = useStore.getState().filament.cloudSync;
     const logged = !!state?.logged_in;
     if (state?.offline) {
-      // Offline Filament Manager (this fork): the change is already saved locally, nothing goes to the cloud
+      // already saved locally
       pushToast({ level: 'info', text: t('Saved.'), op });
     } else if (logged) {
       const label =

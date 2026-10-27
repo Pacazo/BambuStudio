@@ -44,8 +44,7 @@ class OG_CustomCtrl :public wxPanel
     ConfigOptionMode m_mode{comSimple};
 
 public:
-    // Coloured circle character left of a label that marks an option as custom (this fork), advanced or
-    // developer mode only
+    // Coloured circle left of the label of a custom, advanced or developer mode option
     struct LabelMarker {
         const char* symbol;   // UTF-8
         wxColour    colour;

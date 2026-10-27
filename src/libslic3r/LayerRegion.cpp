@@ -164,10 +164,7 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
     Flow overhang_flow      = wall_layer_height > this->layer()->height + EPSILON ?
         wall_flow(frPerimeter).with_flow_ratio(region_config.bridge_flow) :
         this->bridging_flow(frPerimeter, object_config.thick_bridges);
-    // min_line_width_on_interface: the first object layer on a raft lies wholly on the raft interface, so all its walls
-    // are widened; above supports only the overhang walls can lie on the support interface. The first object layer is
-    // the one without a lower layer: with a raft its id() counts the raft layers. Only without a Z gap to the interface,
-    // see MinLineWidthOnInterface.hpp.
+    // min_line_width_on_interface: every wall of the first layer on a raft, only the overhang walls above supports
     auto min_width_on_interface = [&object_config](const Flow &flow) {
         return float(object_config.min_line_width_on_interface.value * 0.01 * flow.nozzle_diameter());
     };
@@ -182,11 +179,11 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
     } else if (this->layer()->lower_layer != nullptr && min_line_width_on_support_interface(object_config)) {
         const float min_width = min_width_on_interface(overhang_flow);
         if (overhang_flow.bridge()) {
-            // Thick bridge: a round extrusion, its diameter is the line width
+            // thick bridge: its diameter is the line width
             if (overhang_flow.width() < min_width)
                 overhang_flow = Flow::bridging_flow(min_width, overhang_flow.nozzle_diameter());
         } else if (perimeter_flow.width() < min_width) {
-            // Widen the nominal line, then apply the bridge flow ratio as bridging_flow() does
+            // widen the nominal line, then apply the bridge flow ratio as bridging_flow() does
             overhang_flow = perimeter_flow.with_width(min_width).with_flow_ratio(region_config.bridge_flow);
         }
     }

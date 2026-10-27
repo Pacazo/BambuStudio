@@ -1143,8 +1143,7 @@ void PrintingTaskPanel::create_panel(wxWindow *parent)
 
     m_staticText_progress_percent = new wxStaticText(penel_text, wxID_ANY, "0", wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
     m_staticText_progress_percent->SetFont(::Label::Head_18);
-    // A fixed width with room for "100%", all of it in the large font: sized to its text, the label came out a few
-    // pixels narrower than GTK draws it on some desktops, which cut off the last character.
+    // fixed width with room for "100%": sized to its text, GTK cut the last character
     m_staticText_progress_percent->SetMinSize(wxSize(m_staticText_progress_percent->GetTextExtent("100%").x + FromDIP(6), -1));
     m_staticText_progress_percent->SetMaxSize(wxSize(-1, FromDIP(20)));
     m_staticText_progress_percent->SetForegroundColour(wxColour(0, 174, 66));
@@ -1754,12 +1753,10 @@ void PrintingTaskPanel::update_progress_percent(wxString percent, wxString icon)
 {
     if (m_staticText_progress_percent->GetLabelText() == percent + icon)
         return;
-    // The value and the smaller "%" are one label: as two labels, the "%" stayed where the value ended
-    // before it gained a digit, drawn over the last digit, even with a Layout() after each change.
-    // The label has a fixed width, so nothing around it moves.
+    // value and "%" in one label, so that the "%" follows the value
     wxString markup = percent;
     if (!icon.IsEmpty())
-        // Pango sizes are in 1024ths of a point
+        // pango sizes are in 1024ths of a point
         markup += wxString::Format("<span weight=\"normal\" size=\"%d\">%s</span>", ::Label::Body_11.GetPointSize() * 1024, icon);
     m_staticText_progress_percent->SetLabelMarkup(markup);
 }
@@ -2413,7 +2410,7 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     m_staticText_monitoring->Wrap(-1);
     // m_staticText_monitoring->SetFont(PAGE_TITLE_FONT);
     m_staticText_monitoring->SetForegroundColour(PAGE_TITLE_FONT_COL);
-    // The native best size came out a few pixels short of the text and cut its end; size it from the measured text
+    // the native best size cut the end of the text
     m_staticText_monitoring->SetMinSize(wxSize(m_staticText_monitoring->GetTextExtent(m_staticText_monitoring->GetLabel()).x + FromDIP(4), -1));
     bSizer_monitoring_title->Add(m_staticText_monitoring, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, PAGE_TITLE_LEFT_MARGIN);
 

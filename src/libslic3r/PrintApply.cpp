@@ -1314,7 +1314,7 @@ static void apply_temperature_overrides(DynamicPrintConfig &config)
     const ConfigOptionBool *override_chamber = config.option<ConfigOptionBool>("override_chamber_temperature");
     if (override_chamber && override_chamber->value)
         override_ints("chamber_temperatures", config.opt_int("chamber_temperature_override"));
-    // disable_chamber_cooling is only shown with an overridden chamber temperature, so a value left over in the preset has no effect
+    // disable_chamber_cooling only applies with an overridden chamber temperature
     else if (ConfigOptionBool *disable_cooling = config.option<ConfigOptionBool>("disable_chamber_cooling"))
         disable_cooling->value = false;
 }

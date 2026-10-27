@@ -164,7 +164,7 @@ export interface CloudSyncError {
 
 export interface CloudSyncState {
   logged_in: boolean;
-  // Offline Filament Manager (this fork): spools are kept only locally, no sign-in needed
+  // spools are only kept locally, no sign-in needed
   offline?: boolean;
   is_syncing: boolean;
   is_pulling: boolean;

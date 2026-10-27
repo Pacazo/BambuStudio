@@ -1470,7 +1470,7 @@ wxWindow *PreferencesDialog::create_general_tab()
                                                   _L("Show a coloured circle left of the parameters: red for the custom parameters and features, dark green for "
                                                      "the developer mode parameters and green for the advanced parameters."),
                                                   50, "show_custom_marks");
-    // Red mark: option of this fork, always shown so that the marks can be found again when they are hidden
+    // red mark: custom option, always shown so that the marks can be found again
     auto custom_marks_mark = new ::Label(scrolled, ::Label::Body_14, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
     custom_marks_mark->SetForegroundColour(wxColour(230, 0, 0));
     custom_marks_mark->SetToolTip(_L("Custom parameter"));

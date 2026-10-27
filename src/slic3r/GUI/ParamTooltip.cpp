@@ -98,11 +98,10 @@ constexpr int HIDE_DELAY_MS = 100;
 // rendered markdown list does, measured in the details font at whatever the current DPI is.
 const wxString BULLET_MARKER = "* ";
 
-// Red circle prefixed to the description when this fork wrote the tooltip: the same mark and colour as
-// the labels of its options (OG_CustomCtrl). The trailing space is part of the mark, as in BULLET_MARKER.
+// Red circle before a custom description, as on the labels of the custom options
 const wxString CUSTOM_TOOLTIP_MARK = wxString::FromUTF8("\xE2\x97\x8F "); // U+25CF
 
-// Options whose ConfigOptionDef tooltip was written by this fork
+// Options with a custom ConfigOptionDef tooltip
 bool is_custom_tooltip(const std::string &opt_key)
 {
     static const std::set<std::string> custom_tooltips = {

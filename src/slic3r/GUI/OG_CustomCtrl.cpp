@@ -34,7 +34,7 @@ static bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)
             rect.GetTop() <= pt.y && pt.y <= rect.GetBottom();
 }
 
-// Options added or exposed by this fork; their labels get a red circle
+// Custom options, their labels get a red circle
 static bool is_custom_option(const std::string& opt_id)
 {
     static const std::set<std::string> custom_options = {
@@ -52,9 +52,8 @@ static bool is_custom_option(const std::string& opt_id)
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;
 }
 
-// Character drawn left of the label: red circle for options of this fork, dark green circle for options shown only
-// in developer mode, green circle for advanced options. Plain geometric shapes coloured as text: the bundled fonts have
-// them, while colour emoji are not drawn by wxDC.
+// Red circle for the custom options, dark green for developer mode, green for advanced.
+// Shapes drawn as text: wxDC does not draw colour emoji
 static const OG_CustomCtrl::LabelMarker* get_label_marker(const Option& opt)
 {
     static const OG_CustomCtrl::LabelMarker custom_marker  { "\xE2\x97\x8F" /* U+25CF ● */, wxColour(230, 0, 0), 3, L("Custom parameter") };

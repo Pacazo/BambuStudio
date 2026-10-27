@@ -249,8 +249,7 @@ nlohmann::json FilamentManagerVM::HandleInit(const std::string& action, const nl
 
 nlohmann::json FilamentManagerVM::HandleSpool(const std::string& action, const nlohmann::json& payload)
 {
-    // The Filament Manager of this fork is offline: every change is written to the local store, which saves
-    // itself; nothing is pushed to the cloud.
+    // offline: every change goes to the local store, which saves itself
     auto* store = wxGetApp().fila_manager_store();
 
     if (action == "list") {
@@ -680,7 +679,7 @@ nlohmann::json FilamentManagerVM::build_sync_state() const
     const bool   logged_in = agent && agent->is_user_login();
     nlohmann::json s;
     s["logged_in"]      = logged_in;
-    // The Filament Manager of this fork keeps the spools only locally: the web page must not require a sign-in
+    // the spools are only kept locally, no sign-in needed
     s["offline"]        = true;
     s["is_syncing"]     = disp ? disp->is_busy()        : false;
     s["is_pulling"]     = disp ? disp->is_pulling()     : false;

@@ -243,8 +243,7 @@ public:
 #endif
     DeviceWebPage* web_device() const { return m_web_device; }
     //BBS GUI refactor
-    // Only tpHome to tpMonitor are tab positions. The tabs after Device move (the Filament Manager
-    // comes right after Device, Multi-device and Calibration can be hidden): find those with FindPage().
+    // only tpHome to tpMonitor are fixed positions, find the later tabs with FindPage()
     enum TabPosition
     {
         tpHome          = 0,
@@ -364,7 +363,7 @@ public:
     void        select_tab(wxPanel* panel);
     void        select_tab(size_t tab = size_t(-1));
     void        request_select_tab(TabPosition pos);
-    // F1-F12: page is the 0-based position of the tab in the tab bar.
+    // page: 0-based position of the tab in the tab bar
     void        select_tab_by_function_key(int page);
     int         get_calibration_curr_tab();
     void        select_view(const std::string& direction);

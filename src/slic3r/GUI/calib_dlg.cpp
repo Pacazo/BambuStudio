@@ -665,7 +665,7 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
     wxBoxSizer* v_sizer = new wxBoxSizer(wxVERTICAL);
     SetSizer(v_sizer);
 
-    // Custom calibration of this fork: red mark and how to read the result
+    // Custom calibration: red mark and how to read the result
     //
     auto info_sizer = new wxBoxSizer(wxHORIZONTAL);
     auto custom_mark = new wxStaticText(this, wxID_ANY, wxString::FromUTF8("\xE2\x97\x8F") /* U+25CF ● */);
@@ -680,7 +680,7 @@ IroningFlow_Test_Dlg::IroningFlow_Test_Dlg(wxWindow* parent, wxWindowID id, Plat
     info_sizer->Add(custom_mark, 0, wxALL, FromDIP(2));
     info_sizer->Add(info_text, 0, wxALL, FromDIP(2));
     v_sizer->Add(info_sizer, 0, wxALL, FromDIP(5));
-    // MainFrame keeps this dialog: follow the preference every time it is shown
+    // MainFrame keeps this dialog: follow the preference when it is shown
     Bind(wxEVT_SHOW, [this, custom_mark](wxShowEvent& e) {
         if (e.IsShown() && custom_mark->IsShown() != wxGetApp().show_custom_marks()) {
             custom_mark->Show(wxGetApp().show_custom_marks());
@@ -761,7 +761,7 @@ void IroningFlow_Test_Dlg::on_start(wxCommandEvent& event)
     bool read_double = false;
     read_double = m_tiStart->GetTextCtrl()->GetValue().ToDouble(&m_params.start);
     read_double = read_double && m_tiEnd->GetTextCtrl()->GetValue().ToDouble(&m_params.end);
-    // The length of the ironed band in mm, see Plater::calib_ironing_flow().
+    // length of the ironed band in mm
     read_double = read_double && m_tiLength->GetTextCtrl()->GetValue().ToDouble(&m_params.step);
 
     if (!read_double || m_params.start < 0 || m_params.end <= m_params.start || m_params.end > 100 || m_params.step < 10) {
@@ -769,7 +769,7 @@ void IroningFlow_Test_Dlg::on_start(wxCommandEvent& event)
         msg_dlg.ShowModal();
         return;
     }
-    // The marks are at least 10 mm apart.
+    // the marks are at least 10 mm apart
     if (ironing_flow_calib_mark_step(m_params.start, m_params.end, m_params.step) == 0.) {
         MessageDialog msg_dlg(nullptr, wxString::Format(_L("Marks every 20 %% would be less than 10 mm apart: use a length of at least %.0f mm."),
                                                         std::ceil((m_params.end - m_params.start) / 2.)),

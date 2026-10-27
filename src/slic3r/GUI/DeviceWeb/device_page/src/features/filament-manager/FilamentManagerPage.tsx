@@ -78,8 +78,7 @@ export function FilamentManagerPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const canBatchDelete = selected.size > 0;
   const isLoggedIn = cloudSync.logged_in;
-  // Offline Filament Manager (this fork): the spools are kept locally, so the page works without signing in
-  // and the cloud controls are hidden.
+  // offline: the page works without signing in and the cloud controls are hidden
   const isOffline = !!cloudSync.offline;
   const canUseLibrary = isLoggedIn || isOffline;
 

@@ -706,7 +706,7 @@ public:
 
     void                                               persist_window_geometry(wxTopLevelWindow *window, bool default_maximized = false);
     void            update_ui_from_settings();
-    // Coloured circles marking the custom, developer mode and advanced parameters and the features of this fork
+    // coloured circles marking the custom, developer mode and advanced parameters
     bool            show_custom_marks() const { return app_config->get_bool("show_custom_marks"); }
     void            update_custom_marks();
 

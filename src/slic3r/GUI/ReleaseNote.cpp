@@ -1854,7 +1854,7 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     auto auto_base_ip_label = new Label(this, ::Label::Body_13, _L("Change base IP automatically"));
     auto_base_ip_label->SetToolTip(auto_base_ip_tip);
     auto_base_ip_label->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { m_auto_base_ip->SetValue(!m_auto_base_ip->GetValue()); });
-    // Red mark: option of this fork
+    // red mark: custom option
     auto auto_base_ip_mark = new Label(this, ::Label::Body_13, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
     auto_base_ip_mark->SetForegroundColour(wxColour(230, 0, 0));
     auto_base_ip_mark->SetToolTip(_L("Custom parameter"));
@@ -2350,8 +2350,7 @@ void InputIpAddressDialog::workerThreadFunc(std::weak_ptr<InputIpAddressDialog> 
 
         dialog->m_obj->set_user_access_code(str_access_code);
         dialog->m_obj->set_auto_base_ip(auto_base_ip);
-        // Remember the IP now, not only after the first successful connection, so the printer is kept across
-        // restarts even if that connection fails
+        // remember the IP now, also if the first connection fails
         if (dialog->m_obj->is_lan_mode_printer()) {
             dialog->m_obj->record_user_access_dev_ip();
         }

@@ -679,8 +679,7 @@ void GCodeProcessor::TimeProcessor::post_process(const std::string& filename, st
         if (line.length() > 1) {
             line = line.substr(1);
             if (line == reserved_tag(ETags::First_Line_M73_Placeholder) || line == reserved_tag(ETags::Last_Line_M73_Placeholder)) {
-                // this fork: the start delay is written here, after the time estimate, so that it is not counted in it.
-                // The progress stays at 0% and the remaining time counts down the delay every minute.
+                // start delay, after the time estimate so that it is not counted in it
                 if (line == reserved_tag(ETags::First_Line_M73_Placeholder) && context.start_delay_min > 0) {
                     if (s_IsBBLPrinter) {
                         ret += "M1002 gcode_claim_action : 30\n";
@@ -1579,6 +1578,7 @@ void GCodeProcessorResult::reset() {
     time = 0;
     optimal_assignment.clear();
     pause_printing.clear();
+    start_delay_min = 0;
     used_mixed_filaments.clear();
     directly_used_filaments.clear();
 
@@ -1622,6 +1622,7 @@ void GCodeProcessorResult::reset() {
     optimal_assignment.clear();
     pause_printing.clear();
     skippable_part_time.clear();
+    start_delay_min = 0;
     warnings.clear();
     used_mixed_filaments.clear();
     directly_used_filaments.clear();
@@ -2872,6 +2873,7 @@ void GCodeProcessor::finalize(bool post_process)
             m_filament_variant_rows
         );
         context.start_delay_min = m_start_delay_min;
+        m_result.start_delay_min = m_start_delay_min;
         m_time_processor.post_process(m_result.filename, m_result.moves, m_result.lines_ends, context);
     }
 

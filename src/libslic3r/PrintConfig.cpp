@@ -4718,7 +4718,7 @@ void PrintConfigDef::init_fff_params()
     def->sidetext = "%";
     def->ratio_over = "inner_wall_line_width";
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionPercent(15));
+    def->set_default_value(new ConfigOptionPercent(30));
 
     def = this->add("sparse_infill_speed", coFloats);
     def->label = L("Sparse infill");
@@ -6389,7 +6389,7 @@ void PrintConfigDef::init_fff_params()
     def->sidetext = "%";
     def->min = 0;
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionPercent(0));
+    def->set_default_value(new ConfigOptionPercent(140));
 
     def = this->add("support_angle", coFloat);
     def->label = L("Pattern angle");
@@ -6558,7 +6558,7 @@ void PrintConfigDef::init_fff_params()
                        "This setting controls whether support interface or raft interface will be ironned.Support ironing could only works on solid interface,"
                        "that is, support_interface_spacing was zero and support_interface_pattern was't grid");
     def->mode     = comDevelop;
-    def->set_default_value(new ConfigOptionBool(false));
+    def->set_default_value(new ConfigOptionBool(true));
 
     def                = this->add("support_ironing_pattern", coEnum);
     def->label         = L("Support ironing pattern");
@@ -6745,7 +6745,7 @@ void PrintConfigDef::init_fff_params()
                        "and a gap of the same size as top z distance is leaved with the model. Whereas in the opposite case, the gap between supports "
                        "and the model follows support/object xy distance all the time. Only recommended to enable when using HybridTree.");
     def->mode     = comAdvanced;
-    def->set_default_value(new ConfigOptionBool(false));
+    def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("independent_support_layer_height", coBool);
     def->label = L("Independent support layer height");

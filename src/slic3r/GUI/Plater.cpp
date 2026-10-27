@@ -25354,7 +25354,7 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
         if (agent) agent->track_event("third_cali", js.dump());
     } catch (...) {}
 
-    // The band plus 5 mm at each end, see ironing_flow_calib_mesh().
+    // the band plus 5 mm at each end
     const double length = params.step + 10.;
     {
         const auto        &printer_config = wxGetApp().preset_bundle->printers.get_edited_preset().config;
@@ -25374,7 +25374,7 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
     wxGetApp().mainframe->select_tab(size_t(MainFrame::tp3DEditor));
     if (params.mode != CalibMode::Calib_Ironing_Flow) return;
 
-    // The test is printed with the 0.12 mm process preset of the current printer, preferring the system one.
+    // the 0.12 mm process preset of the current printer, preferably the system one
     constexpr double calib_layer_height = 0.12;
     const Preset    *layer_preset       = nullptr;
     for (const Preset &preset : wxGetApp().preset_bundle->prints.get_presets()) {
@@ -25391,8 +25391,7 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
         print_config->set_key_value("layer_height", new ConfigOptionFloat(calib_layer_height));
     print_config->set_key_value("enable_wrapping_detection", new ConfigOptionBool(false));
 
-    // 2 base layers, 2 more layers with the marks and their flows and 1 top layer, the only one ironed. The minimum and
-    // maximum flows are engraved down to the base.
+    // 2 base layers, 2 layers of marks and 1 ironed top layer
     const double first_layer_height = print_config->option<ConfigOptionFloat>("initial_layer_print_height")->value;
     const double layer_height       = print_config->option<ConfigOptionFloat>("layer_height")->value;
     const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);

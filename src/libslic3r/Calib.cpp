@@ -808,8 +808,7 @@ double CalibPressureAdvancePattern::max_numbering_height() const
 }
 
 double CalibPressureAdvancePattern::pattern_shift() const { return (wall_count() - 1) * line_spacing_first_layer() + line_width_first_layer() + m_glyph_padding_horizontal; }
-// Strokes of a glyph in the style of the pressure advance numbers, in a cell len wide and 2 * len high with the origin
-// at the bottom left. Dots are appended to dots as squares.
+// Strokes of a glyph len wide and 2 * len high, origin at the bottom left; dots are appended as squares
 static Polylines ironing_flow_glyph(char c, double len, double dot, Polygons &dots)
 {
     //  0-------1
@@ -851,7 +850,7 @@ static Polylines ironing_flow_glyph(char c, double len, double dot, Polygons &do
     }
 }
 
-// Length along the reading direction of text in glyphs len wide drawn with strokes stroke wide.
+// Length of text in glyphs len wide
 static double ironing_flow_text_length(const std::string &text, double len, double stroke)
 {
     double total = -stroke;
@@ -860,8 +859,7 @@ static double ironing_flow_text_length(const std::string &text, double len, doub
     return total;
 }
 
-// Glyph width that fits text drawn with strokes stroke wide into width x length, at most 1.5 mm. Only the glyphs shrink
-// to fit the length, not the spacing between them.
+// Glyph width that fits text into width x length, at most 1.5 mm
 static double ironing_flow_text_fit(const std::string &text, double width, double length, double stroke)
 {
     double       len     = std::min(1.5, (width - stroke) / 2.);
@@ -872,8 +870,7 @@ static double ironing_flow_text_fit(const std::string &text, double width, doubl
     return len;
 }
 
-// Text of the ironing flow calibration plate, reading towards -Y with the top of the glyphs towards +X, centred on
-// center_x and running down from top_y, in glyphs len wide and 2 * len high drawn with strokes stroke wide.
+// Text reading towards -Y with the top of the glyphs towards +X, centred on center_x and running down from top_y
 static ExPolygons ironing_flow_text(const std::string &text, double center_x, double top_y, double len, double stroke)
 {
     Polylines strokes;
@@ -882,7 +879,6 @@ static ExPolygons ironing_flow_text(const std::string &text, double center_x, do
     for (char c : text) {
         Polygons  glyph_dots;
         Polylines glyph = ironing_flow_glyph(c, len, stroke * 1.2, glyph_dots);
-        // Glyph cell (gx, gy) to the plate: x = center_x + (gy - len), y = u - gx.
         auto place = [center_x, u, len](Point &p) {
             const Vec2d g = unscale(p);
             p = Point::new_scale(center_x + (g.y() - len), u - g.x());
@@ -916,7 +912,7 @@ static std::string ironing_flow_label(double flow)
     return s + "%";
 }
 
-// Prism of the shape from z0 to z1.
+// Prism of the shape from z0 to z1
 static indexed_triangle_set ironing_flow_prism(const ExPolygons &shape, double z0, double z1)
 {
     indexed_triangle_set its = Emboss::polygons2model(shape, Emboss::ProjectZ(scale_(z1 - z0)));
@@ -945,7 +941,7 @@ indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, d
         return ExPolygon(Polygon({ Point::new_scale(x0, y0), Point::new_scale(x1, y0), Point::new_scale(x1, y1), Point::new_scale(x0, y1) }));
     };
 
-    // Marks in front of the band with their flow embossed below, drawn as wide as the marks.
+    // marks in front of the band, with their flow embossed below
     constexpr double mark_length = 2.;
     constexpr double label_gap   = 1.;
     constexpr double label_len   = 1.5;
@@ -962,7 +958,7 @@ indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, d
             front = std::max(front, mark_length + label_gap + ironing_flow_text_length(label, label_len, mark_width) + 1.5);
         }
 
-    // Minimum and maximum flows engraved in the side strips, down to the base.
+    // minimum and maximum flows engraved in the side strips, down to the base
     const double stroke = 1.5 * nozzle_diameter;
     ExPolygons   text;
     for (const auto &[flow, x] : { std::pair(min_flow, side / 2.), std::pair(max_flow, total_length - side / 2.) }) {

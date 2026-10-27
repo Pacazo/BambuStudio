@@ -121,8 +121,7 @@ void ButtonsListCtrl::OnPaint(wxPaintEvent&)
     dc.DrawRectangle(1, sz.y - m_line_margin, sz.x, m_line_margin);
 }
 
-// Labeled tabs may shrink to btn_width_label_min when crowded. Their max width fits the whole label (this fork):
-// "Filament Manager" was cut with an ellipsis at btn_width_label_max although the tab bar had room for it.
+// Labeled tabs may shrink to btn_width_label_min when crowded, their max width fits the whole label
 static void set_label_tab_size(Button *btn, int em)
 {
     btn->SetMinSize({btn_width_label_min * em / 10, btn_height * em / 10});

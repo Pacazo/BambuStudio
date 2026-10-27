@@ -145,8 +145,7 @@ void wgtFilaManagerSync::check_and_register_new_rfid_spools(MachineObject* obj)
 
             m_pending_badges[obj->get_dev_id() + ":" + ams_id_key + ":" + slot_id_key] = uuid;
 
-            // The Filament Manager of this fork is offline: add the spool to the local store instead of sending it
-            // to the cloud, mapping the fields as for a spool pulled from the cloud. sync_all_trays() mounts it next.
+            // offline: add the spool to the local store, mapped like a spool pulled from the cloud
             const nlohmann::json item = {
                 {"RFID",           sync_item.RFID},
                 {"filamentVendor", sync_item.filamentVendor},
@@ -414,7 +413,7 @@ bool wgtFilaManagerSync::sync_all_trays(MachineObject* obj)
         }
     }
 
-    // A new remaining weight also has to reach the open Filament Manager page (this fork), not only a mount change
+    // a new remaining weight also has to reach the open Filament Manager page
     return mount_changed || any_changed;
 }
 

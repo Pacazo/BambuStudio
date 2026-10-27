@@ -150,7 +150,7 @@ void MachineObjectPanel::render(wxDC &dc)
 #endif
 }
 
-// Red circle right of the always-visible remove button of a LAN printer, a feature of this fork
+// red circle right of the always visible remove button of a LAN printer
 static const wxString lan_remove_mark = wxString::FromUTF8("\xE2\x97\x8F"); // U+25CF ●
 
 bool MachineObjectPanel::is_lan_remove_shown() const
@@ -198,8 +198,7 @@ void MachineObjectPanel::doRender(wxDC &dc)
     auto        sizet        = dc.GetTextExtent(dev_name);
     auto        text_end     = 0;
 
-    // The remove button of a LAN printer is always shown, not only on hover: it is the only way to forget the printer.
-    // The red circle right of it marks this feature of this fork; the buttons and the name move left to make room.
+    // the remove button of a LAN printer is always shown, with the red circle on its right
     const bool show_lan_remove = is_lan_remove_shown();
     const int  mark_room       = lan_remove_mark_room();
 
@@ -707,7 +706,7 @@ void SelectMachinePopup::update_user_devices()
         op->update_machine_info(mobj, true);
         //set in lan
         if (mobj->is_lan_mode_printer()) {
-            // An offline LAN printer stays listed (it is kept across restarts) and can be removed with the unbind button
+            // an offline LAN printer stays listed and can be removed with the unbind button
             op->show_printer_bind(false, PrinterBindState::NONE);
             op->show_edit_printer_name(false);
             if (!mobj->is_online()) {
@@ -726,7 +725,7 @@ void SelectMachinePopup::update_user_devices()
                 }
             }
             op->Bind(EVT_UNBIND_MACHINE, [this, dev, mobj](wxCommandEvent& e) {
-                // The button is always visible, so confirm before forgetting the printer
+                // the button is always visible, confirm first
                 if (mobj) {
                     MessageDialog confirm_dlg(nullptr,
                                               wxString::Format(_L("Remove the printer %s? Its IP and access code will be forgotten."),
@@ -1109,8 +1108,7 @@ PinCodePanel::PinCodePanel(wxWindow* parent, int type, wxWindowID winid /*= wxID
 
  void PinCodePanel::on_mouse_left_up(wxMouseEvent& evt)
  {
-     // Close the device list first: the dialog takes its mouse grab, and the list then stayed above every window,
-     // the dialog included, until the application lost the focus
+     // close the device list first, or it stays above the dialog
      for (wxWindow* win = GetParent(); win != nullptr; win = win->GetParent()) {
          if (auto popup = dynamic_cast<PopupWindow*>(win)) {
              popup->DismissAndNotify();

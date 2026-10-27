@@ -809,8 +809,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     );
     option_nozzle_offset_cali_cali->Bind(EVT_SWITCH_PRINT_OPTION, &SelectMachineDialog::on_nozzle_offset_option_changed, this);
 
-    // Spans the whole options width: squeezed into one grid column, the wrapped label got less
-    // width than it was wrapped for, GTK re-wrapped it into more lines and the last ones were cut.
+    // spans the whole options width: in a grid column GTK cut the wrapped label
     m_pa_value_panel = new wxPanel(m_options_other);
     wxBoxSizer *m_pa_value_panel_sizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -2432,7 +2431,7 @@ bool SelectMachineDialog::is_same_printer_model()
     PresetBundle* preset_bundle = wxGetApp().preset_bundle;
     if (preset_bundle && preset_bundle->printers.get_edited_preset().get_printer_type(preset_bundle) != obj_->printer_type) {
 
-        // Revisions of one model have different ids (an H2C reports O1C or O1C2) and list each other as compatible
+        // revisions of one model (an H2C reports O1C or O1C2) list each other as compatible
         const std::vector<std::string> compatible_machine = obj_->get_compatible_machine();
         if (std::find(compatible_machine.begin(), compatible_machine.end(),
                       preset_bundle->printers.get_edited_preset().get_printer_type(preset_bundle)) != compatible_machine.end()) {
@@ -2844,15 +2843,13 @@ void SelectMachineDialog::EnableEditing(bool enable)
     enable ? m_saveTimeText->Enable() : m_saveTimeText->Disable();
 }
 
-/* Grow the scroll area to its content so all the options show without scrolling, up to what the screen allows;
-   past that the area scrolls. It never shrinks: resizing it both ways on every refresh left the page blank on some
-   platforms (STUDIO-12867), and growing only settles after the first refreshes. */
+/* Grow the scroll area to its content, up to the screen height. It never shrinks (STUDIO-12867) */
 void SelectMachineDialog::update_scroll_area_size() {
 
     const int      display_idx = wxDisplay::GetFromWindow(this);
     const wxRect   screen      = wxDisplay(display_idx == wxNOT_FOUND ? 0u : unsigned(display_idx)).GetClientArea();
     const int      cur_height  = m_scroll_area->GetSize().GetHeight();
-    // The rest of the dialog, plus room for the title bar, which is not part of the window size on every platform
+    // the rest of the dialog, plus room for the title bar
     const int      other_height = GetSize().GetHeight() - cur_height + FromDIP(50);
     const int      new_height   = std::min(m_scroll_area->GetSizer()->CalcMin().GetHeight(), screen.GetHeight() - other_height);
     if (new_height <= cur_height) { return; }
@@ -2863,7 +2860,7 @@ void SelectMachineDialog::update_scroll_area_size() {
     Layout();
     Fit();
 
-    // Keep the grown dialog on screen
+    // keep the grown dialog on screen
     const wxRect rect = GetScreenRect();
     if (rect.GetBottom() > screen.GetBottom()) {
         Move(rect.GetX(), std::max(screen.GetTop(), screen.GetBottom() - rect.GetHeight()));
@@ -6823,7 +6820,7 @@ void SelectMachineDialog::on_flow_pa_caliation_option_changed(wxCommandEvent& ev
 void SelectMachineDialog::show_pa_value_panel(bool show)
 {
     m_pa_value_panel->Show(show);
-    // The options panel must grow with it; laying out only the dialog keeps its old height and cuts the row.
+    // the options panel must grow with it
     m_options_other->Layout();
     m_options_other->Fit();
     Layout();

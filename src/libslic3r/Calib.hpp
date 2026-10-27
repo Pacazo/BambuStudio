@@ -374,14 +374,10 @@ private:
     const double m_glyph_padding_vertical{1};
 };
 
-// Flow between the marks of the ironing flow calibration plate: the first of 1, 2, 5, 10 and 20 % that keeps them at least
-// 10 mm apart, or 0 if none does.
+// Flow between the ironing flow calibration marks: 1, 2, 5, 10 or 20 % so that they are at least 10 mm apart, 0 if none
 double ironing_flow_calib_mark_step(double min_flow, double max_flow, double length);
 
-// Ironing flow calibration plate, 5 mm longer than the band at each end. The back 15 mm are the band, ironed along its
-// length, with the minimum and maximum flows engraved in the side strips. In front of it, marks 0.5 mm wide and 2 mm long
-// every ironing_flow_calib_mark_step() with their flow embossed below. base_z is the top of the base, ruler_z the top of the
-// marks and their flows and top_z the top of the band.
+// Ironing flow calibration plate: the ironed band, the marks in front of it and the minimum and maximum flows
 indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, double length, double nozzle_diameter,
                                              double base_z, double ruler_z, double top_z);
 

@@ -221,7 +221,7 @@ std::string wgtFilaManagerStore::get_storage_path() const
     return (fs::path(data_dir()) / "filament_inventory" / "spools.json").string();
 }
 
-// The Filament Manager of this fork is offline: the spools live only in this file, there is no cloud copy.
+// The spools live only in this file, there is no cloud copy
 void wgtFilaManagerStore::load()
 {
     const fs::path path(get_storage_path());

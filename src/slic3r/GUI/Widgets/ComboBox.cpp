@@ -54,8 +54,7 @@ ComboBox::ComboBox(wxWindow *parent,
     if (style & wxCB_READONLY) {
         GetTextCtrl()->Hide();
 #ifdef __WXGTK__
-        // The hidden text control still counts as a focusable child, which left the combo box
-        // unfocusable for GTK and made Tab skip it. Take the focus ourselves; keyDown handles the keys.
+        // the hidden text control made GTK skip the combo box on Tab, keyDown handles the keys
         SetCanFocus(true);
 #endif
         TextInput::SetFont(Label::Body_14);

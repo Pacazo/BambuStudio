@@ -552,7 +552,7 @@ void MachineObject::erase_user_access_dev_ip()
 bool MachineObject::is_auto_base_ip() const
 {
     AppConfig* config = GUI::wxGetApp().app_config;
-    // Enabled unless switched off explicitly
+    // enabled by default
     return !config || config->get("user_access_auto_base_ip", get_dev_id()) != "0";
 }
 

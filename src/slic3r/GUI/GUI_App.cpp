@@ -2296,10 +2296,7 @@ void GUI_App::init_networking_callbacks()
                             } else if (state == ConnectStatus::ConnectStatusFailed) {
                                 wxString text;
                                 if (msg == "5") {
-                                    // Access refused. It used to forget the printer (list entry, access code and IP), but
-                                    // it can also be refused by whatever now answers at the old address after a network
-                                    // change. Keep it listed as offline; only the remove button forgets a printer. Tell
-                                    // once, not on every automatic reconnection.
+                                    // access refused: keep the printer listed as offline, tell once
                                     obj->set_online_state(false);
                                     BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: access refused, keep the printer as offline";
                                     if (!obj->lan_access_denied_shown) {
@@ -2310,9 +2307,7 @@ void GUI_App::init_networking_callbacks()
                                         wxGetApp().show_dialog(text);
                                     }
                                 } else {
-                                    // Not found: with "Change base IP automatically" the network may have changed, so
-                                    // retry on the Wi-Fi subnet. The retried address is already on it, so a second failure
-                                    // ends below. A successful connection persists the new IP (record_user_access_dev_ip).
+                                    // not found: retry on the Wi-Fi subnet
                                     const std::string base_ip = obj->is_auto_base_ip() ? DeviceManager::get_auto_base_ip(obj->get_dev_ip()) : "";
                                     if (!base_ip.empty()) {
                                         BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: failed, retry on the Wi-Fi subnet, ip = "
@@ -2322,18 +2317,13 @@ void GUI_App::init_networking_callbacks()
                                         return;
                                     }
 
-                                    // An unreachable printer (powered off, asleep, network down) used to be dropped from
-                                    // the list and deselected, which also cleared it as the last selected machine, so it
-                                    // was forgotten. Keep it listed and selected as offline; DeviceManager::on_machine_alive
-                                    // reconnects it when it is seen on the network again. No dialog: the offline state shows it,
-                                    // and a printer that is simply powered off would raise one on every start.
+                                    // keep the printer listed and selected as offline, on_machine_alive reconnects it
                                     obj->set_online_state(false);
                                     BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: failed, keep the printer as offline, code = " << msg;
                                 }
                                 event.SetInt(-1);
                             } else if (state == ConnectStatus::ConnectStatusLost) {
-                                // Same as a failed connection: keep the printer selected as offline instead of
-                                // forgetting it, so it reconnects when it comes back.
+                                // keep the printer selected as offline
                                 obj->set_online_state(false);
                                 event.SetInt(-1);
                                 BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: state = lost";
@@ -3692,8 +3682,7 @@ bool GUI_App::on_init_inner()
             m_fila_manager_sync = new wgtFilaManagerSync(m_fila_manager_store);
             BOOST_LOG_TRIVIAL(info) << "Filament Manager sync initialized";
         }
-        // The Filament Manager of this fork is offline: the cloud layer (HTTP client, cloud sync and dispatcher) is
-        // not created, so the spools stay in the local store and nothing is sent to the Bambu cloud.
+        // no cloud layer: the spools stay in the local store
     }
 
     BOOST_LOG_TRIVIAL(info) << "create the main window";
@@ -4791,7 +4780,7 @@ void GUI_App::update_ui_from_settings()
     if (mainframe) {mainframe->update_ui_from_settings();}
 }
 
-// Show or hide the marks after the preference changed. Windows created on demand check it when they are built.
+// Show or hide the marks after the preference changed
 void GUI_App::update_custom_marks()
 {
     if (mainframe)

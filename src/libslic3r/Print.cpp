@@ -193,7 +193,6 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "curr_bed_type",
         "nozzle_volume",
         "chamber_temperatures",
-        // the overridden filament temperatures are invalidated on their own keys
         "override_chamber_temperature",
         "chamber_temperature_override",
         "disable_chamber_cooling",
@@ -243,7 +242,6 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "ams_filament_unload_time_n3f_s",
     };
 
-    // Only decides whether the filament grouping dialog pops up before slicing
     static std::unordered_set<std::string> steps_ignore = { "filament_grouping_mode" };
 
     std::vector<PrintStep> steps;
