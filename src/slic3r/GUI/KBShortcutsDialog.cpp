@@ -205,6 +205,7 @@ void KBShortcutsDialog::fill_shortcuts()
             #ifndef __APPLE__
                 { ctrl + "Tab", L("Switch tab page")},
             #endif
+            { "F1 - F12", L("Go to the tab page at that position")},
             //DEL
             #ifdef __APPLE__
                 {"BackSpace", L("Delete selected")},

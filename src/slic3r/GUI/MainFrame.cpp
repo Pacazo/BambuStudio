@@ -86,6 +86,10 @@
 #include "libslic3r/Log.hpp"
 #include "libslic3r/Utils.hpp"
 
+#ifdef __WXGTK__
+#include <gtk/gtk.h>
+#endif
+
 
 namespace Slic3r {
 namespace GUI {
@@ -99,6 +103,25 @@ wxDEFINE_EVENT(EVT_CHECK_PRIVACY_SHOW, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SHOW_IP_DIALOG, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_MACHINE_LIST, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_PRESET_CB, SimpleEvent);
+
+#ifdef __WXGTK__
+// F1-F12 without modifiers select the tab at that position in the tab bar.
+// GTK emits "event" on the top level window for every key press before passing it to the focused widget.
+// Switching tabs hides the focused widget and GTK leaves no widget focused, so wxEVT_CHAR_HOOK
+// would not come again until a click; a focused web page takes the key presses for itself too.
+static gboolean mainframe_function_key_press(GtkWidget *, GdkEvent *event, gpointer data)
+{
+    if (event->type != GDK_KEY_PRESS)
+        return FALSE;
+    const guint keyval = event->key.keyval;
+    if (keyval < GDK_KEY_F1 || keyval > GDK_KEY_F12 || (event->key.state & gtk_accelerator_get_default_mod_mask()) != 0)
+        return FALSE;
+    MainFrame *mainframe = static_cast<MainFrame *>(data);
+    const int page = int(keyval - GDK_KEY_F1);
+    mainframe->CallAfter([mainframe, page] { mainframe->select_tab_by_function_key(page); });
+    return TRUE;
+}
+#endif
 
 
 
@@ -699,6 +722,9 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
             Slic3r::run_backup_ui_tasks();
             });
 ;    }
+#ifdef __WXGTK__
+    g_signal_connect(GetHandle(), "event", G_CALLBACK(mainframe_function_key_press), this);
+#endif
     this->Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &evt) {
         const int key_code = evt.GetKeyCode();
 #ifdef __APPLE__
@@ -817,6 +843,12 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
                 wxPostEvent(target, e);
                 return;
             }
+        }
+
+        // F1-F12 select the tab at that position in the tab bar. GTK gets them in mainframe_function_key_press().
+        if (!evt.HasAnyModifiers() && key_code >= WXK_F1 && key_code <= WXK_F12) {
+            select_tab_by_function_key(key_code - WXK_F1);
+            return;
         }
 
         // Pass 3D view preset shortcuts directly to the current canvas. (Only 0-7 currently used but reserve 8 & 9 anyway.)
@@ -1098,7 +1130,7 @@ void MainFrame::update_layout()
                 if(!preview_only_hint())
                     return;
             }
-            else if (evt.GetId() == tpCalibration) {
+            else if (evt.GetId() >= 0 && m_tabpanel->GetPage(size_t(evt.GetId())) == m_calibration) {
                 m_calibration->update_all();
             } else if (evt.GetId() == tpPreview && !wxGetApp().check_slice_version_policy()) {
                 if (wxWindow *cur = m_tabpanel->GetCurrentPage()) cur->SetFocus();
@@ -1301,14 +1333,8 @@ void MainFrame::show_calibration_button(bool show, bool is_BBL)
     if (shown2 == show)
         ;
     else if (show) {
-        // Insert right before the Filament Manager tab (or append if it isn't there) so
-        // the visual order stays Project / Calibration / Filament Manager regardless of
-        // how many leading plater pages update_layout() has inserted.
-        int fm_page_id = m_web_device ? m_tabpanel->FindPage(m_web_device) : wxNOT_FOUND;
-        size_t insert_at = (fm_page_id != wxNOT_FOUND)
-                               ? static_cast<size_t>(fm_page_id)
-                               : m_tabpanel->GetPageCount();
-        m_tabpanel->InsertPage(insert_at, m_calibration, _L("Calibration"),
+        // Calibration is the last tab; the Filament Manager sits right after Device.
+        m_tabpanel->InsertPage(m_tabpanel->GetPageCount(), m_calibration, _L("Calibration"),
                                std::string("tab_monitor_active"),
                                std::string("tab_monitor_active"), false);
     } else {
@@ -1570,6 +1596,12 @@ void MainFrame::init_tabpanel()
     m_monitor->SetBackgroundColour(*wxWHITE);
     m_tabpanel->AddPage(m_monitor, _L("Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
+    // The Filament Manager comes right after Device, before Multi-device, Project and Calibration
+    if (!wxGetApp().is_fila_manager_disabled()) {
+        m_web_device = new DeviceWebPage(m_tabpanel);
+        m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
+    }
+
     m_printer_view = new PrinterWebView(m_tabpanel);
     Bind(EVT_LOAD_PRINTER_URL, [this](wxCommandEvent &evt) {
         wxString url = evt.GetString();
@@ -1593,10 +1625,6 @@ void MainFrame::init_tabpanel()
     m_calibration->SetBackgroundColour(*wxWHITE);
     m_tabpanel->AddPage(m_calibration, _L("Calibration"), std::string("tab_calibration_active"), std::string("tab_calibration_active"), false);
 
-    if (!wxGetApp().is_fila_manager_disabled()) {
-        m_web_device = new DeviceWebPage(m_tabpanel);
-        m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
-    }
     update_custom_marks();
 
     if (m_plater) {
@@ -4365,7 +4393,9 @@ void MainFrame::jump_to_monitor(std::string dev_id)
 
 void MainFrame::jump_to_multipage()
 {
-    m_tabpanel->SetSelection(tpMultiDevice);
+    int page = m_tabpanel->FindPage(m_multi_machine);
+    if (page != wxNOT_FOUND)
+        m_tabpanel->SetSelection(page);
     ((MultiMachinePage*)m_multi_machine)->jump_to_send_page();
 }
 
@@ -4430,6 +4460,19 @@ void MainFrame::request_select_tab(TabPosition pos)
     wxCommandEvent* evt = new wxCommandEvent(EVT_SELECT_TAB);
     evt->SetInt(pos);
     wxQueueEvent(this, evt);
+}
+
+// F1-F12 select the tab at that position in the tab bar (F1 Home, F2 Prepare, F3 Preview, F4 Device, ...).
+// Positions follow the tabs actually shown, as optional tabs (Multi-device, Calibration, ...) shift the rest.
+// Posted as a click on the tab button, so the checks done on a click (preview-only hint, slice
+// version policy, Calibration refresh) run too.
+void MainFrame::select_tab_by_function_key(int page)
+{
+    if (page >= 0 && size_t(page) < m_tabpanel->GetPageCount() && m_tabpanel->GetSelection() != page) {
+        wxCommandEvent click(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED);
+        click.SetId(page);
+        wxPostEvent(m_tabpanel, click);
+    }
 }
 
 int MainFrame::get_calibration_curr_tab() {
