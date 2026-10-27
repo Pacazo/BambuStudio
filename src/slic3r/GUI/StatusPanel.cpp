@@ -1141,26 +1141,15 @@ void PrintingTaskPanel::create_panel(wxWindow *parent)
     wxBoxSizer *sizer_percent = new wxBoxSizer(wxVERTICAL);
     sizer_percent->Add(0, 0, 1, wxEXPAND, 0);
 
-    wxBoxSizer *sizer_percent_icon = new wxBoxSizer(wxVERTICAL);
-    sizer_percent_icon->Add(0, 0, 1, wxEXPAND, 0);
-
-    m_staticText_progress_percent = new wxStaticText(penel_text, wxID_ANY, "0", wxDefaultPosition, wxDefaultSize, 0);
+    m_staticText_progress_percent = new wxStaticText(penel_text, wxID_ANY, "0", wxDefaultPosition, wxDefaultSize, wxST_NO_AUTORESIZE);
     m_staticText_progress_percent->SetFont(::Label::Head_18);
+    // A fixed width with room for "100%", all of it in the large font: sized to its text, the label came out a few
+    // pixels narrower than GTK draws it on some desktops, which cut off the last character.
+    m_staticText_progress_percent->SetMinSize(wxSize(m_staticText_progress_percent->GetTextExtent("100%").x + FromDIP(6), -1));
     m_staticText_progress_percent->SetMaxSize(wxSize(-1, FromDIP(20)));
     m_staticText_progress_percent->SetForegroundColour(wxColour(0, 174, 66));
 
-    m_staticText_progress_percent_icon = new wxStaticText(penel_text, wxID_ANY, "%", wxDefaultPosition, wxDefaultSize, 0);
-    m_staticText_progress_percent_icon->SetFont(::Label::Body_11);
-    m_staticText_progress_percent_icon->SetMaxSize(wxSize(-1, FromDIP(13)));
-    m_staticText_progress_percent_icon->SetForegroundColour(wxColour(0, 174, 66));
-
     sizer_percent->Add(m_staticText_progress_percent, 0, 0, 0);
-
-#ifdef __WXOSX_MAC__
-    sizer_percent_icon->Add(m_staticText_progress_percent_icon, 0, wxBOTTOM, FromDIP(2));
-#else
-    sizer_percent_icon->Add(m_staticText_progress_percent_icon, 0, 0, 0);
-#endif
 
     m_staticText_progress_left = new wxStaticText(penel_text, wxID_ANY, L("N/A"), wxDefaultPosition, wxDefaultSize, 0);
     m_staticText_progress_left->Wrap(-1);
@@ -1179,7 +1168,6 @@ void PrintingTaskPanel::create_panel(wxWindow *parent)
     m_staticTextPauses->Hide();
 
     bSizer_text->Add(sizer_percent, 0, wxEXPAND, 0);
-    bSizer_text->Add(sizer_percent_icon, 0, wxEXPAND, 0);
     bSizer_text->Add(0, 0, 1, wxEXPAND, 0);
     bSizer_text->Add(m_staticTextPauses, 0, wxALIGN_CENTER_VERTICAL | wxALL, 0);
     bSizer_text->Add(m_staticText_layers, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(20));
@@ -1764,12 +1752,16 @@ void PrintingTaskPanel::on_stage_clicked(wxMouseEvent &event)
 
 void PrintingTaskPanel::update_progress_percent(wxString percent, wxString icon)
 {
-    if (m_staticText_progress_percent->GetLabelText() == percent && m_staticText_progress_percent_icon->GetLabelText() == icon)
+    if (m_staticText_progress_percent->GetLabelText() == percent + icon)
         return;
-    m_staticText_progress_percent->SetLabelText(percent);
-    m_staticText_progress_percent_icon->SetLabelText(icon);
-    // The value grows to the right when it gains a digit: move the "%" next to it, or it is drawn over the last digit.
-    m_staticText_progress_percent->GetParent()->Layout();
+    // The value and the smaller "%" are one label: as two labels, the "%" stayed where the value ended
+    // before it gained a digit, drawn over the last digit, even with a Layout() after each change.
+    // The label has a fixed width, so nothing around it moves.
+    wxString markup = percent;
+    if (!icon.IsEmpty())
+        // Pango sizes are in 1024ths of a point
+        markup += wxString::Format("<span weight=\"normal\" size=\"%d\">%s</span>", ::Label::Body_11.GetPointSize() * 1024, icon);
+    m_staticText_progress_percent->SetLabelMarkup(markup);
 }
 
 void PrintingTaskPanel::update_left_time(wxString time) { m_staticText_progress_left->SetLabelText(time); }

@@ -321,7 +321,6 @@ private:
     ScalableButton* m_question_button;
     wxStaticText*   m_staticText_subtitle;
     wxStaticText*   m_staticText_progress_percent;
-    wxStaticText*   m_staticText_progress_percent_icon;
     wxStaticText*   m_staticText_progress_left;
     Label*          m_staticText_finish_time;
     RectTextPanel*  m_staticText_finish_day;
