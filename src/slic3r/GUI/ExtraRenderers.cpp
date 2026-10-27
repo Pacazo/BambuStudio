@@ -4,6 +4,10 @@
 #include "BitmapComboBox.hpp"
 #include "Plater.hpp"
 #include "Widgets/ComboBox.hpp"
+#include "GUI_App.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include <boost/algorithm/string/trim.hpp>
 
 #include <wx/dc.h>
 #ifdef wxHAS_GENERIC_DATAVIEWCTRL
@@ -263,25 +267,38 @@ bool BitmapChoiceRenderer::GetValue(wxVariant& value) const
     return true;
 }
 
+// filament name without the printer
+static wxString filament_name(int filament_idx)
+{
+    const std::vector<std::string> &presets = Slic3r::GUI::wxGetApp().preset_bundle->filament_presets;
+    if (filament_idx < 0 || filament_idx >= int(presets.size()))
+        return wxEmptyString;
+    std::string name = presets[filament_idx].substr(0, presets[filament_idx].find('@'));
+    boost::algorithm::trim(name);
+    return from_u8(name);
+}
+
 bool BitmapChoiceRenderer::Render(wxRect rect, wxDC* dc, int state)
 {
-//    int xoffset = 0;
+    int xoffset = 0;
 
     const wxBitmap& icon = m_value.GetBitmap();
     if (icon.IsOk())
     {
         dc->DrawBitmap(icon, rect.x, rect.y + (rect.height - icon.GetHeight()) / 2);
-//        xoffset = icon.GetWidth() + 4;
+        xoffset = icon.GetWidth() + 4;
 
         if (rect.height == 0)
           rect.height = icon.GetHeight();
     }
 
+    wxString name = filament_name(atoi(m_value.GetText().c_str()) - 1);
+    name          = wxControl::Ellipsize(name, *dc, wxELLIPSIZE_END, rect.width - xoffset);
 #ifdef _WIN32
     // workaround for Windows DarkMode : Don't respect to the state & wxDATAVIEW_CELL_SELECTED to avoid update of the text color
-//    RenderText(m_value.GetText(), xoffset, rect, dc, state & wxDATAVIEW_CELL_SELECTED ? 0 : state);
+    RenderText(name, xoffset, rect, dc, state & wxDATAVIEW_CELL_SELECTED ? 0 : state);
 #else
-//    RenderText(m_value.GetText(), xoffset, rect, dc, state);
+    RenderText(name, xoffset, rect, dc, state);
 #endif
 
     return true;
@@ -289,7 +306,7 @@ bool BitmapChoiceRenderer::Render(wxRect rect, wxDC* dc, int state)
 
 wxSize BitmapChoiceRenderer::GetSize() const
 {
-    wxSize sz;// = GetTextExtent(m_value.GetText());
+    wxSize sz = GetTextExtent(filament_name(atoi(m_value.GetText().c_str()) - 1));
 
     if (m_value.GetBitmap().IsOk()) {
         sz.x += m_value.GetBitmap().GetWidth() + 4;
@@ -314,14 +331,14 @@ wxWindow* BitmapChoiceRenderer::CreateEditorCtrl(wxWindow* parent, wxRect labelR
 
     ::ComboBox *c_editor = new ::ComboBox(parent, wxID_ANY, wxEmptyString,
         labelRect.GetTopLeft(), wxSize(labelRect.GetWidth(), -1),
-        0, nullptr, wxCB_READONLY | CB_NO_DROP_ICON | CB_NO_TEXT);
+        0, nullptr, wxCB_READONLY | CB_NO_DROP_ICON);
     c_editor->GetDropDown().SetUseContentWidth(true);
 
     if (has_default_extruder && has_default_extruder())
         c_editor->Append(_L("default"), *get_default_extruder_color_icon());
 
     for (size_t i = 0; i < icons.size(); i++)
-        c_editor->Append(wxString::Format("%d", i+1), *icons[i]);
+        c_editor->Append(filament_name(i), *icons[i]);
 
     if (has_default_extruder && has_default_extruder())
         c_editor->SetSelection(atoi(data.GetText().c_str()));
@@ -353,7 +370,8 @@ bool BitmapChoiceRenderer::GetValueFromEditorCtrl(wxWindow* ctrl, wxVariant& val
    
     DataViewBitmapText bmpText;
 
-    bmpText.SetText(c->GetString(selection));
+    const bool has_default_item = has_default_extruder && has_default_extruder();
+    bmpText.SetText(has_default_item && selection == 0 ? _L("default") : wxString::Format("%d", has_default_item ? selection : selection + 1));
     bmpText.SetBitmap(c->GetItemBitmap(selection));
 
     value << bmpText;
