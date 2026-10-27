@@ -586,9 +586,6 @@ void init_wipe_tower_placed_flag(PartPlate &plate)
     bool need_wipe_tower = timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false;
     if (print_cfg.has("enable_wrapping_detection"))
         need_wipe_tower |= print_cfg.opt_bool("enable_wrapping_detection");
-    // The minimum layer time for parking purges on the wipe tower.
-    if (print_cfg.has("park_min_layer_time"))
-        need_wipe_tower |= print_cfg.opt_float("park_min_layer_time") > 0.;
 
     // Same rule as plate_allows_wipe_tower()/try_optimal_wipe_tower_position_for_plate():
     // ByObject only has a tower when the plate holds exactly one printable instance.

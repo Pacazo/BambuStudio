@@ -112,7 +112,6 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "overhang_fan_threshold",
         "overhang_threshold_participating_cooling",
         "slow_down_for_layer_cooling",
-        "disable_layer_time_slowdown",
         "no_slow_down_for_cooling_on_outwalls",
         "deretraction_speed",
         "close_fan_the_first_x_layers",
@@ -324,8 +323,6 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "hot_plate_temp"
             || opt_key == "textured_plate_temp"
             || opt_key == "enable_prime_tower"
-            // Forces the wipe tower and keeps room for a purge in every layer of it.
-            || opt_key == "park_min_layer_time"
             || opt_key == "enable_wrapping_detection"
             || opt_key == "prime_tower_enable_framework"
             || opt_key == "prime_tower_width"
@@ -3684,10 +3681,6 @@ bool Print::has_wipe_tower() const
         if (enable_timelapse_print())
             return true;
 
-        // The minimum layer time for parking purges on the wipe tower, see park_min_layer_time.
-        if (park_min_layer_time() && !is_sequential_print())
-            return true;
-
         const std::vector<unsigned int> used_filaments = expand_mixed_filaments(
             this->extruders(true), m_config.filament_is_mixed.values, m_config.filament_mixed_components.values);
         return !m_config.spiral_mode.value && used_filaments.size() > 1;
@@ -3709,8 +3702,7 @@ const WipeTowerData& Print::wipe_tower_data(size_t filaments_cnt) const
     layer_height        = m_objects.front()->config().layer_height.value;
 
     auto   timelapse_type  = config().option<ConfigOptionEnum<TimelapseType>>("timelapse_type");
-    bool   need_wipe_tower = (timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false) | m_config.prime_tower_rib_wall.value |
-                             park_min_layer_time();
+    bool   need_wipe_tower = (timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false) | m_config.prime_tower_rib_wall.value;
     double extra_spacing = config().option("prime_tower_infill_gap")->getFloat() / 100.;
     double rib_width     = config().option("prime_tower_rib_width")->getFloat();
 
@@ -3738,8 +3730,6 @@ const WipeTowerData& Print::wipe_tower_data(size_t filaments_cnt) const
         double wipe_volume = get_max_element(filament_wipe_volume);
         int filament_depth_count = m_config.nozzle_diameter.values.size() == 2 ? filaments_cnt : filaments_cnt - 1;
         if (filaments_cnt == 1 && enable_timelapse_print()) filament_depth_count = 1;
-        // Every layer keeps room for a purge after parking for the minimum layer time.
-        if (park_min_layer_time()) filament_depth_count += 1;
         double volume = wipe_volume * filament_depth_count;
         if (m_config.nozzle_diameter.values.size() == 2) volume += filament_change_volume * (int) (filaments_cnt / 2);
 
@@ -3772,105 +3762,6 @@ const WipeTowerData& Print::wipe_tower_data(size_t filaments_cnt) const
 bool Print::enable_timelapse_print() const
 {
     return m_config.timelapse_type.value == TimelapseType::tlSmooth;
-}
-
-bool Print::park_min_layer_time() const
-{
-    return m_config.park_min_layer_time.value > 0. && !m_config.spiral_mode.value;
-}
-
-// Lower bound of the time to print the extrusions: at the speed of their role, or at the maximum volumetric speed when it is
-// slower. Slowdowns, accelerations and travels only make the real time longer. role_speed is 0 for an unknown speed.
-static double extrusions_min_time(const ExtrusionEntity &entity, const std::function<double(ExtrusionRole)> &role_speed, double max_volumetric_speed)
-{
-    auto path_time = [&role_speed, max_volumetric_speed](const ExtrusionPath &path) {
-        double speed = role_speed(path.role());
-        if (speed <= 0.)
-            speed = std::numeric_limits<double>::max();
-        if (path.mm3_per_mm > 0. && max_volumetric_speed > 0.)
-            speed = std::min(speed, max_volumetric_speed / path.mm3_per_mm);
-        return speed < std::numeric_limits<double>::max() ? unscale<double>(path.polyline.length()) / speed : 0.;
-    };
-    double time = 0.;
-    if (auto *collection = dynamic_cast<const ExtrusionEntityCollection*>(&entity)) {
-        for (const ExtrusionEntity *e : collection->entities)
-            time += extrusions_min_time(*e, role_speed, max_volumetric_speed);
-    } else if (auto *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
-        time = path_time(*path);
-    } else if (auto *multi_path = dynamic_cast<const ExtrusionMultiPath*>(&entity)) {
-        for (const ExtrusionPath &p : multi_path->paths)
-            time += path_time(p);
-    } else if (auto *loop = dynamic_cast<const ExtrusionLoop*>(&entity)) {
-        for (const ExtrusionPath &p : loop->paths)
-            time += path_time(p);
-    }
-    return time;
-}
-
-coordf_t Print::park_wipe_tower_top_z() const
-{
-    if (!this->park_min_layer_time())
-        return 0.;
-
-    auto max_speed = [](const ConfigOptionFloatsNullable &opt) {
-        double speed = 0.;
-        for (size_t i = 0; i < opt.values.size(); ++i)
-            if (!opt.is_nil(i))
-                speed = std::max(speed, opt.values[i]);
-        return speed;
-    };
-    const double max_volumetric_speed = max_speed(m_config.filament_max_volumetric_speed);
-
-    // Lower bound of the time of every layer, layers of all objects with the same print_z together.
-    std::vector<std::pair<coordf_t, double>> layer_times;
-    for (const PrintObject *object : m_objects) {
-        const double copies = double(object->instances().size());
-        for (const Layer *layer : object->layers()) {
-            double time = 0.;
-            for (const LayerRegion *layerm : layer->regions()) {
-                const PrintRegionConfig &config = layerm->region().config();
-                const double wall = std::max(max_speed(config.outer_wall_speed), max_speed(config.inner_wall_speed));
-                const double any  = std::max({ wall, max_speed(config.sparse_infill_speed), max_speed(config.internal_solid_infill_speed),
-                                               max_speed(config.top_surface_speed), max_speed(config.gap_infill_speed),
-                                               max_speed(config.bridge_speed), config.ironing_speed.value });
-                auto role_speed = [&config, &max_speed, wall, any](ExtrusionRole role) {
-                    switch (role) {
-                    case erExternalPerimeter: return max_speed(config.outer_wall_speed);
-                    case erPerimeter:         return max_speed(config.inner_wall_speed);
-                    case erOverhangPerimeter: return wall;
-                    case erInternalInfill:    return max_speed(config.sparse_infill_speed);
-                    case erSolidInfill:       return max_speed(config.internal_solid_infill_speed);
-                    case erTopSolidInfill:    return max_speed(config.top_surface_speed);
-                    case erGapFill:           return max_speed(config.gap_infill_speed);
-                    case erIroning:           return config.ironing_speed.value;
-                    default:                  return any;
-                    }
-                };
-                time += extrusions_min_time(layerm->perimeters, role_speed, max_volumetric_speed) +
-                        extrusions_min_time(layerm->fills, role_speed, max_volumetric_speed);
-            }
-            layer_times.emplace_back(layer->print_z, time * copies);
-        }
-        const PrintObjectConfig &object_config = object->config();
-        const double support = std::max(max_speed(object_config.support_speed), max_speed(object_config.support_interface_speed));
-        for (const SupportLayer *layer : object->support_layers())
-            layer_times.emplace_back(layer->print_z,
-                                     copies * extrusions_min_time(layer->support_fills, [support](ExtrusionRole) { return support; }, max_volumetric_speed));
-    }
-    std::sort(layer_times.begin(), layer_times.end());
-    std::vector<std::pair<coordf_t, double>> layers;
-    for (const auto &layer_time : layer_times)
-        if (!layers.empty() && layer_time.first < layers.back().first + EPSILON)
-            layers.back().second += layer_time.second;
-        else
-            layers.emplace_back(layer_time);
-
-    // A layer which prints in the minimum layer time even at that bound never parks. The purge after parking is in the next layer.
-    coordf_t top_z = 0.;
-    for (size_t i = 0; i + 1 < layers.size(); ++i)
-        if (layers[i].second < m_config.park_min_layer_time.value)
-            top_z = layers[i + 1].first;
-    return top_z;
 }
 
 // Boundary-to-boundary distance of two outlines. On a plate that already passed the regular by-layer
@@ -4287,6 +4178,9 @@ void Print::_make_wipe_tower()
 {
     m_wipe_tower_data.clear();
 
+    // BBS
+    const unsigned int number_of_extruders = (unsigned int)(m_config.filament_colour.values.size());
+
     // Let the ToolOrdering class know there will be initial priming extrusions at the start of the print.
     // BBS: priming logic is removed, so don't consider it in tool ordering
     m_wipe_tower_data.tool_ordering = ToolOrdering(*this, (unsigned int)-1, false);
@@ -4336,25 +4230,14 @@ void Print::_make_wipe_tower()
     }
     this->throw_if_canceled();
 
-    const unsigned int number_of_extruders = (unsigned int)(m_config.filament_colour.values.size());
-
     auto group_result = get_layered_nozzle_group_result();
     assert(m_nozzle_group_result);
     // Initialize the wipe tower.
     // BBS: in BBL machine, wipe tower is only use to prime extruder. So just use a global wipe volume.
     WipeTower wipe_tower(m_config, m_plate_index, m_origin, m_wipe_tower_data.tool_ordering.first_extruder(),
                          m_wipe_tower_data.tool_ordering.empty() ? 0.f : m_wipe_tower_data.tool_ordering.back().print_z, m_wipe_tower_data.tool_ordering.all_extruders());
-    // Minimum layer time: up to park_top_z, every layer keeps room for a purge after parking. The wipe tower is generated twice
-    // from the same plan, with that room filled like the rest of the tower and with the purge, and the G-code generator takes
-    // each layer from the one it needs.
-    const coordf_t             park_top_z = this->park_wipe_tower_top_z();
-    std::unique_ptr<WipeTower> park_tower;
-    if (park_top_z > 0.)
-        park_tower = std::make_unique<WipeTower>(m_config, m_plate_index, m_origin, m_wipe_tower_data.tool_ordering.first_extruder(),
-                                                 m_wipe_tower_data.tool_ordering.empty() ? 0.f : m_wipe_tower_data.tool_ordering.back().print_z, m_wipe_tower_data.tool_ordering.all_extruders());
-    for (WipeTower *tower : { &wipe_tower, park_tower.get() }) {
-        if (tower == nullptr)
-            continue;
+    {
+        WipeTower *tower = &wipe_tower;
         tower->set_foundation_required(foundation_required);
         tower->set_first_layer_flow_ratio(m_default_region_config.initial_layer_flow_ratio);
         tower->set_has_tpu_filament(this->has_tpu_filament());
@@ -4370,13 +4253,6 @@ void Print::_make_wipe_tower()
         if (m_single_diameter_layering_nozzle > EPSILON)
             tower->set_single_diameter_parameters(float(m_single_diameter_layering_nozzle));
     }
-    // Plans the same toolchange on both towers.
-    auto plan_toolchange = [&wipe_tower, &park_tower](float z, float layer_height, unsigned int old_tool, unsigned int new_tool,
-                                                      float wipe_volume_ec = 0.f, float wipe_volume_nc = 0.f, float purge_volume = 0.f) {
-        wipe_tower.plan_toolchange(z, layer_height, old_tool, new_tool, wipe_volume_ec, wipe_volume_nc, purge_volume);
-        if (park_tower)
-            park_tower->plan_toolchange(z, layer_height, old_tool, new_tool, wipe_volume_ec, wipe_volume_nc, purge_volume);
-    };
     // BBS: remove priming logic
     //m_wipe_tower_data.priming = Slic3r::make_unique<std::vector<WipeTower::ToolChangeResult>>(
     //    wipe_tower.prime((float)this->skirt_first_layer_height(), m_wipe_tower_data.tool_ordering.all_extruders(), false));
@@ -4426,22 +4302,7 @@ void Print::_make_wipe_tower()
                 continue;
             }
             bool first_layer = &layer_tools == &m_wipe_tower_data.tool_ordering.front();
-            plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, old_filament_id);
-
-            // Room for a purge of the loaded filament after parking, unless the layer starts with a filament change.
-            if (park_tower && ! first_layer && layer_tools.print_z < park_top_z + EPSILON && ! layer_tools.extruders.empty() &&
-                layer_tools.extruders.front() == old_filament_id) {
-                float wipe_volume_ec = m_config.filament_prime_volume.values[old_filament_id];
-                float wipe_volume_nc = m_config.filament_prime_volume_nc.values[old_filament_id];
-                if (m_config.prime_volume_mode == PrimeVolumeMode::pvmSaving) {
-                    wipe_volume_ec = 15.f;
-                    wipe_volume_nc = 15.f;
-                }
-                wipe_tower.plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, old_filament_id,
-                                           wipe_volume_ec, wipe_volume_nc, 0.f, true, false);
-                park_tower->plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, old_filament_id,
-                                            wipe_volume_ec, wipe_volume_nc, 0.f, true, true);
-            }
+            wipe_tower.plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, old_filament_id);
 
             used_filament_ids.insert(layer_tools.extruders.begin(), layer_tools.extruders.end());
 
@@ -4482,8 +4343,8 @@ void Print::_make_wipe_tower()
                     wipe_volume_ec = 15.f;
                     wipe_volume_nc = 15.f;
                 }
-                plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, filament_id,
-                                wipe_volume_ec, wipe_volume_nc, volume_to_purge);
+                wipe_tower.plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, old_filament_id, filament_id,
+                                           wipe_volume_ec, wipe_volume_nc, volume_to_purge);
                 old_filament_id = filament_id;
 
                 nozzle_recorder.set_nozzle_status(nozzle_id, filament_id);
@@ -4492,17 +4353,9 @@ void Print::_make_wipe_tower()
 
             // if enable timelapse, slice all layer
             if (m_config.enable_wrapping_detection || enable_timelapse_print()) {
-                if (layer_tools.wipe_tower_partitions == 0) {
-                    wipe_tower.set_last_layer_extruder_fill(false);
-                    if (park_tower)
-                        park_tower->set_last_layer_extruder_fill(false);
-                }
+                if (layer_tools.wipe_tower_partitions == 0) wipe_tower.set_last_layer_extruder_fill(false);
                 continue;
             }
-
-            // Up to the layer after the last one which may park for the minimum layer time.
-            if (layer_tools.print_z < park_top_z - EPSILON)
-                continue;
 
             if (&layer_tools == &m_wipe_tower_data.tool_ordering.back() || (&layer_tools + 1)->wipe_tower_partitions == 0)
                 break;
@@ -4527,12 +4380,6 @@ void Print::_make_wipe_tower()
     if (std::all_of(m_wipe_tower_data.tool_changes.begin(), m_wipe_tower_data.tool_changes.end(),
                     [](const std::vector<WipeTower::ToolChangeResult> &layer) { return layer.empty(); }))
         m_wipe_tower_data.tool_changes.clear();
-    if (park_tower) {
-        park_tower->set_used_filament_ids(std::vector<int>(used_filament_ids.begin(), used_filament_ids.end()));
-        park_tower->set_filament_categories(categories);
-        m_wipe_tower_data.park_tool_changes.reserve(m_wipe_tower_data.tool_changes.size());
-        park_tower->generate_new(m_wipe_tower_data.park_tool_changes);
-    }
     m_wipe_tower_data.depth = wipe_tower.get_depth();
     m_wipe_tower_data.brim_width = wipe_tower.get_brim_width();
     m_wipe_tower_data.bbx = wipe_tower.get_bbx();

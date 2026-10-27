@@ -256,31 +256,8 @@ static inline void extruder_range_slow_down_non_proportional(std::vector<PerExtr
 }
 
 // Calculate slow down for all the extruders.
-float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments, float park_layer_time,
-                                              bool slow_down)
+float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments)
 {
-    m_park_time              = 0.f;
-    m_layer_time_not_reached = false;
-
-    if (park_layer_time > 0.f) {
-        // A layer shorter than the minimum layer time for parking even when slowed down to the minimum print speed is
-        // printed at full speed instead, and the print head parks for the rest of the time. Layers without any move are not
-        // parked.
-        float layer_time   = 0.f;
-        float slowest_time = 0.f;
-        bool  has_lines    = false;
-        for (PerExtruderAdjustments &adj : per_extruder_adjustments) {
-            const float time = adj.elapsed_time_total();
-            layer_time += time;
-            slowest_time += slow_down && adj.cooling_slow_down_enabled ? adj.maximum_time_after_slowdown(true) : time;
-            has_lines |= !adj.lines.empty();
-        }
-        if (has_lines && slowest_time < park_layer_time) {
-            m_park_time = park_layer_time - layer_time;
-            return layer_time;
-        }
-    }
-
     // Sort the extruders by an increasing slow_down_layer_time.
     // The layers with a lower slow_down_layer_time are slowed down
     // together with all the other layers with slow_down_layer_time above.
@@ -298,7 +275,7 @@ float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments
         adj.time_total = adj.elapsed_time_total();
         // Maximum time for this extruder, when all extrusion moves are slowed down to min_extrusion_speed.
         adj.time_maximum = adj.maximum_time_after_slowdown(true);
-        if (slow_down && adj.cooling_slow_down_enabled && adj.lines.size() > 0) {
+        if (adj.cooling_slow_down_enabled && adj.lines.size() > 0) {
             by_slowdown_time.emplace_back(&adj);
 
             // For ConsistentSurface logic, prepare the non-adjustable segments
@@ -364,7 +341,6 @@ float CoolingBuffer::calculate_layer_slowdown(std::vector<PerExtruderAdjustments
             } else {
                 // Slow down to maximum possible.
                 for (auto it = cur_begin; it != by_slowdown_time.end(); ++it) (*it)->slowdown_to_minimum_feedrate(true);
-                m_layer_time_not_reached = true;
             }
         }
         elapsed_time_total0 += adj.elapsed_time_total();

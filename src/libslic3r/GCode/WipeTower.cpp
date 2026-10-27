@@ -41,13 +41,12 @@ static float nozzle_change_width_for_diameter(float nozzle_diameter)
 bool wipe_tower_sparse_layers_skipped(const PrintConfig &config)
 {
     return config.wipe_tower_no_sparse_layers.value && config.timelapse_type.value != TimelapseType::tlSmooth &&
-           ! config.enable_wrapping_detection.value && config.park_min_layer_time.value <= 0.;
+           ! config.enable_wrapping_detection.value;
 }
 
 bool wipe_tower_layer_is_sparse(const std::vector<WipeTower::ToolChangeResult> &layer_tool_changes)
 {
-    return layer_tool_changes.size() == 1 && layer_tool_changes.front().initial_tool == layer_tool_changes.front().new_tool &&
-           !layer_tool_changes.front().is_prime_only;
+    return layer_tool_changes.size() == 1 && layer_tool_changes.front().initial_tool == layer_tool_changes.front().new_tool;
 }
 
 double prime_tower_side_scrape_margin(const PrintConfig &config)
@@ -3118,17 +3117,17 @@ WipeTower::WipeTowerInfo::ToolChange WipeTower::set_toolchange(int old_tool, int
 
 // Appends a toolchange into m_plan and calculates neccessary depth of the corresponding box
 void WipeTower::plan_toolchange(float z_par, float layer_height_par, unsigned int old_tool,
-                                unsigned int new_tool, float wipe_volume_ec,float wipe_volume_nc,float purge_volume, bool prime_only, bool prime_used)
+                                unsigned int new_tool, float wipe_volume_ec,float wipe_volume_nc,float purge_volume)
 {
 	assert(m_plan.empty() || m_plan.back().z <= z_par + WT_EPSILON);	// refuses to add a layer below the last one
 
 	if (m_plan.empty() || m_plan.back().z + WT_EPSILON < z_par) // if we moved to a new layer, we'll add it to m_plan first
 		m_plan.push_back(WipeTowerInfo(z_par, layer_height_par));
 
-    if (m_first_layer_idx == size_t(-1) && (! m_sparse_layers_skipped || old_tool != new_tool || prime_only))
+    if (m_first_layer_idx == size_t(-1) && (! m_sparse_layers_skipped || old_tool != new_tool))
         m_first_layer_idx = m_plan.size() - 1;
 
-    if (old_tool == new_tool && ! prime_only)	// new layer without toolchanges - we are done
+    if (old_tool == new_tool)	// new layer without toolchanges - we are done
         return;
 
 	// this is an actual toolchange - let's calculate depth to reserve on the wipe tower
@@ -3177,8 +3176,6 @@ void WipeTower::plan_toolchange(float z_par, float layer_height_par, unsigned in
     WipeTowerInfo::ToolChange tool_change = WipeTowerInfo::ToolChange(old_tool, new_tool, depth, 0.f, 0.f, wipe_volume, length_to_extrude, purge_volume);
     tool_change.nozzle_change_depth       = nozzle_change_depth;
     tool_change.nozzle_change_length      = nozzle_change_length;
-    tool_change.prime_only                = prime_only;
-    tool_change.prime_used                = prime_used;
     m_plan.back().tool_changes.push_back(tool_change);
 #endif
 }
@@ -3404,7 +3401,6 @@ WipeTower::ToolChangeResult WipeTower::merge_tcr(ToolChangeResult &first, ToolCh
     // start_pos / tool_change_start_pos (which for the scrape case already point at the scrape start)
     // are propagated by the existing merge logic below, so both the deferred append_tcr approach and
     // the merge-inserted travel land on the scrape start.
-    out.is_prime_only = first.is_prime_only || second.is_prime_only;
     auto has_nozzle_change_action = [](const NozzleChangeResult &ncr) {
         return !ncr.gcode.empty() || ncr.heater_off_only || ncr.zero_flush_idle_cooling;
     };
@@ -3724,67 +3720,6 @@ WipeTower::ToolChangeResult WipeTower::tool_change_new(size_t new_tool, bool sol
         result.start_pos             = rotated_scrape_start;
         result.tool_change_start_pos = rotated_scrape_start;
     }
-    return result;
-}
-
-// Purge of the loaded filament on the wipe tower without a filament change, after the print head parked for the
-// minimum layer time. Like the wipe of tool_change_new(), without unloading and loading the filament.
-WipeTower::ToolChangeResult WipeTower::prime_only_new(size_t tool, bool solid_toolchange)
-{
-    assert(tool == m_current_tool);
-    m_nozzle_change_result.gcode.clear();
-
-    float wipe_depth  = 0.f;
-    float wipe_length = 0.f;
-    for (const auto &b : m_layer_info->tool_changes)
-        if (b.prime_only && b.new_tool == tool) {
-            wipe_length = b.wipe_length;
-            wipe_depth  = b.required_depth;
-            break;
-        }
-    WipeTowerBlock* block = get_block_by_category(m_filpar[tool].category, false);
-    if (!block) {
-        assert(block != nullptr);
-        return WipeTower::ToolChangeResult();
-    }
-    m_cur_block = block;
-    box_coordinates cleaning_box(Vec2f(m_perimeter_width, block->cur_depth), m_wipe_tower_width - 2 * m_perimeter_width, wipe_depth);
-
-    WipeTowerWriter writer(m_layer_height, m_perimeter_width, m_gcode_flavor, m_filpar, m_enable_arc_fitting);
-    writer.set_extrusion_flow(m_extrusion_flow)
-        .set_z(m_z_pos)
-        .set_initial_tool(m_current_tool)
-        .set_y_shift(m_y_shift + (m_current_shape == SHAPE_REVERSED ? m_layer_info->depth - m_layer_info->toolchanges_depth() : 0.f))
-        .append(";--------------------\n"
-                "; CP PRIME AFTER PARK START\n");
-    set_for_wipe_tower_writer(writer);
-
-    writer.speed_override_backup();
-    writer.speed_override(100);
-
-    Vec2f initial_position = get_next_pos(cleaning_box, wipe_length, solid_toolchange);
-    writer.set_initial_position(initial_position, m_wipe_tower_width, m_wipe_tower_depth, m_internal_rotation);
-    writer.append(";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Wipe_Tower_Start) + "\n");
-    toolchange_wipe_new(writer, cleaning_box, wipe_length, solid_toolchange);
-    writer.append(";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Wipe_Tower_End) + "\n");
-
-    block->cur_depth += wipe_depth;
-    block->last_filament_change_id = tool;
-
-    writer.speed_override_restore();
-    writer.feedrate(m_travel_speed * 60.f)
-        .flush_planner_queue()
-        .reset_extruder()
-        .append("; CP PRIME AFTER PARK END\n"
-                ";------------------\n"
-                "\n\n");
-
-    if (tool < m_used_filament_length.size())
-        m_used_filament_length[tool] += writer.get_and_reset_used_filament_length();
-
-    // Travel to the tower like a finish layer block, there is no filament change G-code to do it.
-    ToolChangeResult result = construct_tcr(writer, false, tool, true, false, 0.f, solid_toolchange);
-    result.is_prime_only = true;
     return result;
 }
 
@@ -5888,10 +5823,7 @@ void WipeTower::calc_block_infill_gap()
     //2. recalculate toolchange depth
      for (int idx = 0; idx < m_plan.size(); idx++) {
         for (auto &toolchange : m_plan[idx].tool_changes) {
-            bool prime_only = toolchange.prime_only, prime_used = toolchange.prime_used;
             toolchange = set_toolchange(toolchange.old_tool, toolchange.new_tool, m_plan[idx].height, toolchange.wipe_volume, toolchange.purge_volume,idx);
-            toolchange.prime_only = prime_only;
-            toolchange.prime_used = prime_used;
         }
      }
      m_extra_spacing = 1.f;
@@ -7336,10 +7268,7 @@ void WipeTower::plan_tower_new()
         m_wipe_tower_width = square_width;
         for (int idx = 0; idx < m_plan.size(); idx++) {
             for (auto &toolchange : m_plan[idx].tool_changes) {
-                bool prime_only = toolchange.prime_only, prime_used = toolchange.prime_used;
                 toolchange = set_toolchange(toolchange.old_tool, toolchange.new_tool, m_plan[idx].height, toolchange.wipe_volume, toolchange.purge_volume,idx);
-                toolchange.prime_only = prime_only;
-                toolchange.prime_used = prime_used;
             }
         }
     }
@@ -7952,20 +7881,14 @@ void WipeTower::generate_new(std::vector<std::vector<WipeTower::ToolChangeResult
 
             const auto * block2 = get_block_by_category(get_block_key(layer.tool_changes[i].old_tool, m_cur_layer_id), false);
             if(block2) solid_nozzlechange = block2->layers_type[m_cur_layer_id] == WipeTowerLayerType::Contact;
-            if (layer.tool_changes[i].prime_only) {
-                // Room for a purge after parking: unused, it stays empty and the finish block fills it.
-                if (layer.tool_changes[i].prime_used)
-                    layer_result.emplace_back(prime_only_new(layer.tool_changes[i].new_tool, solid_toolchange));
-            } else
-                layer_result.emplace_back(tool_change_new(layer.tool_changes[i].new_tool, solid_toolchange,solid_nozzlechange));
+            layer_result.emplace_back(tool_change_new(layer.tool_changes[i].new_tool, solid_toolchange,solid_nozzlechange));
 
             if (i == 0 && (layer.tool_changes[i].old_tool == wall_idx)) {
 
             }
-            else if (layer.tool_changes[i].new_tool == wall_idx && !layer_result.empty()) {
+            else if (layer.tool_changes[i].new_tool == wall_idx) {
                 finish_layer_tcr = finish_layer_new(extrude_outer_wall, false, false, wall_height, wall_reserved);
-                // Index of the result of this toolchange, which differs from i after an unused room for a purge.
-                insert_finish_layer_idx = int(layer_result.size()) - 1;
+                insert_finish_layer_idx = i;
             }
         }
 

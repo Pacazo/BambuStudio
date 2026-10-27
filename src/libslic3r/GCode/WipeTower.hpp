@@ -127,8 +127,6 @@ public:
         float              side_scrape_z_low = 0.f;                 // lowest scrape Z in the planned layer frame
         float              side_scrape_depth = 0.f;                 // requested descent below the tower top
         float              side_scrape_min_height_above_base = 0.f; // keep this far above the tower's first layer
-        // Purge of the loaded filament after parking for the minimum layer time, without a filament change.
-        bool               is_prime_only = false;
         NozzleChangeResult nozzle_change_result;
 
 		// Sum the total length of the extrusion.
@@ -209,9 +207,7 @@ public:
     void set_shared_print_bed(const Polygons &bed) { m_shared_print_bed = bed; }
 	// Appends into internal structure m_plan containing info about the future wipe tower
 	// to be used before building begins. The entries must be added ordered in z.
-    // prime_only: room for a purge of the loaded filament old_tool == new_tool without a filament change, after parking for the
-    // minimum layer time. prime_used: the purge is printed; otherwise the room is filled like the rest of the block.
-    void plan_toolchange(float z_par, float layer_height_par, unsigned int old_tool, unsigned int new_tool, float wipe_volume_ec = 0.f, float wipe_volume_nc = 0.f, float prime_volume = 0.f, bool prime_only = false, bool prime_used = true);
+    void plan_toolchange(float z_par, float layer_height_par, unsigned int old_tool, unsigned int new_tool, float wipe_volume_ec = 0.f, float wipe_volume_nc = 0.f, float prime_volume = 0.f);
 
 
 	// Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result"
@@ -604,7 +600,6 @@ public:
     void set_first_layer_flow_ratio(const float flow_ratio);
     void calc_block_infill_gap();
     ToolChangeResult   tool_change_new(size_t new_tool, bool solid_change = false, bool solid_nozzlechange=false);
-    ToolChangeResult   prime_only_new(size_t tool, bool solid_change = false);
     NozzleChangeResult ramming(int old_filament_id, int new_filament_id, bool solid_change = false, bool extruder_change = true); // extruder_chang means nozzle_change
     NozzleChangeResult heater_off_nozzle_change(int old_filament_id, int new_filament_id);
     NozzleChangeResult idle_travel_cooling(int old_filament_id, int new_filament_id);
@@ -909,8 +904,6 @@ private:
 			float wipe_length;
             float nozzle_change_depth{0};
             float nozzle_change_length{0};
-            bool  prime_only{false};
-            bool  prime_used{true};
 			// BBS
 			float purge_volume;
             ToolChange(size_t old, size_t newtool, float depth=0.f, float ramming_depth=0.f, float fwl=0.f, float wv=0.f, float wl = 0, float pv = 0)

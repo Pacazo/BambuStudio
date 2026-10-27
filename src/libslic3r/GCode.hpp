@@ -75,15 +75,13 @@ public:
         const std::vector<WipeTower::ToolChangeResult>              &priming,
         const std::vector<std::vector<WipeTower::ToolChangeResult>> &tool_changes,
         const WipeTower::ToolChangeResult                           &final_purge,
-        const std::vector<unsigned int>                             &slice_used_filaments,
-        const std::vector<std::vector<WipeTower::ToolChangeResult>> &park_tool_changes) :
+        const std::vector<unsigned int>                             &slice_used_filaments) :
         m_left(/*float(print_config.wipe_tower_x.value)*/ 0.f),
         m_right(float(/*print_config.wipe_tower_x.value +*/ print_config.prime_tower_width.value)),
         m_wipe_tower_pos(float(print_config.wipe_tower_x.get_at(plate_idx)), float(print_config.wipe_tower_y.get_at(plate_idx))),
         m_wipe_tower_rotation(float(print_config.wipe_tower_rotation_angle)),
         m_priming(priming),
         m_tool_changes(tool_changes),
-        m_park_tool_changes(park_tool_changes),
         m_final_purge(final_purge),
         m_layer_idx(-1),
         m_tool_change_idx(0),
@@ -108,13 +106,6 @@ public:
     void next_layer() { ++ m_layer_idx; m_tool_change_idx = 0; }
     std::string tool_change(GCode &gcodegen, int extruder_id, bool finish_layer);
     bool is_empty_wipe_tower_gcode(GCode &gcodegen, int extruder_id, bool finish_layer);
-    // Whether this layer follows a park for the minimum layer time: its tool changes are then taken from the wipe tower
-    // with the purge after parking printed in the room every layer keeps for it.
-    void set_park_layer(bool park_layer) { m_park_layer = park_layer; }
-    // Purge of the loaded filament planned at the start of this layer, after parking for the minimum layer time.
-    std::string prime_after_park(GCode &gcodegen);
-    // Where the print head parks for the minimum layer time: next to the wipe tower, in plate coordinates.
-    Vec2d park_position(const GCode &gcodegen) const;
     std::string finalize(GCode &gcodegen);
     std::vector<float> used_filament_length() const;
 
@@ -148,11 +139,6 @@ private:
     // Reference to cached values at the Printer class.
     const std::vector<WipeTower::ToolChangeResult>              &m_priming;
     const std::vector<std::vector<WipeTower::ToolChangeResult>> &m_tool_changes;
-    const std::vector<std::vector<WipeTower::ToolChangeResult>> &m_park_tool_changes;
-    bool                                                         m_park_layer{false};
-    // Tool changes of the current layer, from the wipe tower with the purge after parking when the layer follows a park.
-    const std::vector<WipeTower::ToolChangeResult>              &layer_tool_changes() const
-        { return m_park_layer && m_layer_idx < (int) m_park_tool_changes.size() ? m_park_tool_changes[m_layer_idx] : m_tool_changes[m_layer_idx]; }
     const WipeTower::ToolChangeResult                           &m_final_purge;
     // Current layer index.
     int                                                          m_layer_idx;
@@ -171,8 +157,6 @@ private:
     bool                                                         m_enable_timelapse_print;
     bool                                                         m_enable_wrapping_detection;
     bool                                                         m_is_first_print;
-    // Layer whose purge after parking was printed by prime_after_park(), possibly its only block.
-    int                                                          m_prime_after_park_layer_idx{-1};
     const PrintConfig *                                          m_print_config;
     float                                                        m_wipe_tower_depth;
     BoundingBoxf                                                 m_wipe_tower_bbx;
@@ -361,9 +345,6 @@ private:
         //store each layer_time
         float       layer_time = 0;
         bool   not_set_additional_fan { false };
-        coordf_t    print_z = 0.;
-        // Time to wait at the park position at the start of this layer, see park_min_layer_time.
-        float       park_time = 0.f;
         LayerResult() = default;
         LayerResult(const std::string& gcode_, const size_t layer_id_, const bool spiral_vase_enable_, const bool cooling_buffer_flush_, const size_t gcode_store_pos_ = static_cast<size_t>(-1)) :
             gcode(gcode_), layer_id(layer_id_), spiral_vase_enable(spiral_vase_enable_), cooling_buffer_flush(cooling_buffer_flush_), gcode_store_pos(gcode_store_pos_){}
@@ -377,8 +358,6 @@ private:
             gcode_store_pos = other.gcode_store_pos;
             layer_time     = other.layer_time;
             not_set_additional_fan = other.not_set_additional_fan;
-            print_z        = other.print_z;
-            park_time      = other.park_time;
         }
 
         LayerResult& operator=(LayerResult&& other) noexcept {
@@ -390,8 +369,6 @@ private:
                 gcode_store_pos = other.gcode_store_pos;
                 layer_time      = other.layer_time;
                 not_set_additional_fan = other.not_set_additional_fan;
-                print_z         = other.print_z;
-                park_time       = other.park_time;
             }
             return *this;
         }
@@ -646,11 +623,6 @@ private:
     std::unique_ptr<PressureEqualizer>  m_pressure_equalizer;
 #endif /* HAS_PRESSURE_EQUALIZER */
     std::unique_ptr<WipeTowerIntegration> m_wipe_tower;
-    // Minimum layer time: the cooling of the previous layer decided to park before the next one, see park_min_layer_time.
-    bool                                m_park_next_layer{ false };
-    // Parks the print head next to the wipe tower after the previous layer for the rest of the minimum layer time,
-    // see park_min_layer_time.
-    std::string                         park_for_min_layer_time(const Print &print, coordf_t print_z);
 
     // Heights (print_z) at which the skirt has already been extruded.
     std::vector<coordf_t>               m_skirt_done;
