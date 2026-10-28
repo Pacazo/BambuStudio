@@ -1002,7 +1002,7 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
 }
 
 
-// Ironing flow calibration: the flow grows linearly from calib.start % at x_start to calib.end % at x_end
+// Ironing flow calibration: the flow grows linearly from calib.start % at x_start to calib.end % at x_end, constant before and after
 static void extrusion_entities_append_calib_ironing_paths(ExtrusionEntitiesPtr &dst, const Polylines &polylines, const Calib_Params &calib,
 	coord_t x_start, coord_t x_end, double height_per_percent, double nozzle_dmr)
 {
@@ -1249,18 +1249,6 @@ void Layer::make_ironing()
 			ironing_areas = intersection_ex(polys, offset(this->lslices, - ironing_areas_offset));
 			if (! void_fill_areas.empty())
 				ironing_areas = diff_ex(ironing_areas, union_ex(void_fill_areas));
-		}
-
-		if (calib_ironing_flow && ! ironing_areas.empty()) {
-			// iron only the test band, not its first and last 5 mm nor the marks
-			const BoundingBox bbox = get_extents(ironing_areas);
-			const Polygon     clip({ Point(calib_x_start, bbox.min.y()), Point(calib_x_end, bbox.min.y()),
-			                         Point(calib_x_end, bbox.max.y()), Point(calib_x_start, bbox.max.y()) });
-			ironing_areas = intersection_ex(ironing_areas, Polygons{ clip });
-			auto largest  = std::max_element(ironing_areas.begin(), ironing_areas.end(),
-				[](const ExPolygon &a, const ExPolygon &b) { return a.area() < b.area(); });
-			if (largest != ironing_areas.end())
-				ironing_areas = ExPolygons{ std::move(*largest) };
 		}
 
         // Create the filler object.

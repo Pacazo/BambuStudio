@@ -25388,16 +25388,24 @@ static bool update_ironing_flow_names(Model &model, const Print *print, bool sli
 {
     if (!print || print->calib_params().mode != CalibMode::Calib_Ironing_Flow)
         return false;
+    // centred like ModelVolume::center_geometry_after_creation() on load, so that the test stays in place
+    auto centred_mesh = [print](const std::string &name) {
+        TriangleMesh mesh  = ironing_flow_test_mesh(print->calib_params(), name);
+        const Vec3d  shift = mesh.bounding_box().center();
+        mesh.translate(-(float) shift(0), -(float) shift(1), -(float) shift(2));
+        mesh.set_init_shift(shift);
+        return mesh;
+    };
     bool changed = false;
     for (ModelObject *object : model.objects) {
         if (object->name != into_u8(_L("Ironing flow test")) || object->volumes.size() != 1)
             continue;
         ModelVolume *volume = object->volumes.front();
-        TriangleMesh mesh   = ironing_flow_test_mesh(print->calib_params(), ironing_flow_filament_name(size_t(std::max(volume->extruder_id(), 1) - 1)));
+        TriangleMesh mesh   = centred_mesh(ironing_flow_filament_name(size_t(std::max(volume->extruder_id(), 1) - 1)));
         if (mesh.its.vertices == volume->mesh().its.vertices)
             continue;
         if (!slicing) {
-            mesh = ironing_flow_test_mesh(print->calib_params(), ironing_flow_placeholder);
+            mesh = centred_mesh(ironing_flow_placeholder);
             if (mesh.its.vertices == volume->mesh().its.vertices)
                 continue;
         }

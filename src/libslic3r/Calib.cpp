@@ -866,8 +866,10 @@ static std::string ironing_flow_label(double flow)
 }
 
 // Prism of the shape from z0 to z1
-static indexed_triangle_set ironing_flow_prism(const ExPolygons &shape, double z0, double z1)
+static indexed_triangle_set ironing_flow_prism(ExPolygons shape, double z0, double z1)
 {
+    // scaled text has duplicit points, which make non-manifold edges
+    Emboss::heal_expolygons(shape);
     indexed_triangle_set its = Emboss::polygons2model(shape, Emboss::ProjectZ(scale_(z1 - z0)));
     for (Vec3f &v : its.vertices)
         v = Vec3f(float(unscale<double>(v.x())), float(unscale<double>(v.y())), float(unscale<double>(v.z()) + z0));
@@ -889,7 +891,8 @@ indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, d
 {
     constexpr double side         = 5.;
     constexpr double depth        = 15.;
-    constexpr double name_depth   = 5.;
+    constexpr double name_depth   = 7.;
+    constexpr double margin       = 1.5;
     const double     total_length = length + 2. * side;
     auto rectangle = [](double x0, double y0, double x1, double y1) {
         return ExPolygon(Polygon({ Point::new_scale(x0, y0), Point::new_scale(x1, y0), Point::new_scale(x1, y1), Point::new_scale(x0, y1) }));
@@ -898,42 +901,46 @@ indexed_triangle_set ironing_flow_calib_mesh(double min_flow, double max_flow, d
     // marks and their flows
     constexpr double mark_length  = 2.;
     constexpr double label_gap    = 1.;
-    constexpr double label_height = 3.;
+    constexpr double label_height = 4.2;
     const double     mark_width   = std::max(0.5, nozzle_diameter);
     Polygons         marks;
-    double           front = 5.;
+    double           scale_depth  = mark_length;
+    auto add_label = [&](double flow, double x) {
+        ExPolygons label = ironing_flow_text(ironing_flow_label(flow), label_height, depth);
+        scale_depth      = std::max(scale_depth, mark_length + label_gap + ironing_flow_text_length(label));
+        append(marks, to_polygons(ironing_flow_text_down(std::move(label), x, -mark_length - label_gap)));
+    };
+    // min and max flows under the side bands, without marks
+    add_label(min_flow, side / 2.);
+    add_label(max_flow, total_length - side / 2.);
     if (const double step = ironing_flow_calib_mark_step(min_flow, max_flow, length); step > 0.)
         for (int i = int(std::ceil(min_flow / step - EPSILON)); i * step <= max_flow + EPSILON; ++i) {
-            const double flow  = i * step;
-            const double x     = side + (flow - min_flow) * length / (max_flow - min_flow);
-            ExPolygons   label = ironing_flow_text(ironing_flow_label(flow), label_height, depth);
+            const double flow = i * step;
+            const double x    = side + (flow - min_flow) * length / (max_flow - min_flow);
             marks.emplace_back(rectangle(x - mark_width / 2., -mark_length, x + mark_width / 2., 0.).contour);
-            front = std::max(front, mark_length + label_gap + ironing_flow_text_length(label) + 1.5);
-            append(marks, to_polygons(ironing_flow_text_down(std::move(label), x, -mark_length - label_gap)));
+            // no label where it would overlap the min or max flow
+            if (std::min(x - side / 2., total_length - side / 2. - x) >= label_height + label_gap)
+                add_label(flow, x);
         }
 
-    // filament name
-    if (ExPolygons name_text = ironing_flow_text(name, label_height, total_length - 2.); !name_text.empty()) {
-        translate(name_text, Point::new_scale(total_length / 2., depth + name_depth / 2.) - get_extents(name_text).center());
-        append(marks, to_polygons(name_text));
-    }
+    // line between the scale and the filament name
+    const double line_y = -scale_depth - label_gap;
+    marks.emplace_back(rectangle(margin, line_y - mark_width, total_length - margin, line_y).contour);
+    const double front = scale_depth + label_gap + mark_width + name_depth;
 
-    // min and max flows, engraved
-    ExPolygons text;
-    for (const auto &[flow, x] : { std::pair(min_flow, side / 2.), std::pair(max_flow, total_length - side / 2.) }) {
-        const double height = std::min(label_height, side - 2. * std::max(0.6, nozzle_diameter));
-        ExPolygons   label  = ironing_flow_text(ironing_flow_label(flow), height, depth - 1.2);
-        const double top_y  = (depth + ironing_flow_text_length(label)) / 2.;
-        append(text, ironing_flow_text_down(std::move(label), x, top_y));
+    // filament name
+    if (ExPolygons name_text = ironing_flow_text(name, label_height, total_length - 2. * margin); !name_text.empty()) {
+        translate(name_text, Point::new_scale(total_length / 2., -front + name_depth / 2.) - get_extents(name_text).center());
+        append(marks, to_polygons(name_text));
     }
 
     const ExPolygon band  = rectangle(0., 0., total_length, depth);
     Polygons        ruler = to_polygons(band);
     append(ruler, std::move(marks));
 
-    indexed_triangle_set its = ironing_flow_prism({ rectangle(0., -front, total_length, depth + name_depth) }, 0., base_z);
-    its_merge(its, ironing_flow_prism(diff_ex(union_(ruler), text), base_z, ruler_z));
-    its_merge(its, ironing_flow_prism(diff_ex(ExPolygons{ band }, text), ruler_z, top_z));
+    indexed_triangle_set its = ironing_flow_prism({ rectangle(0., -front, total_length, depth) }, 0., base_z);
+    its_merge(its, ironing_flow_prism(union_ex(ruler), base_z, ruler_z));
+    its_merge(its, ironing_flow_prism({ band }, ruler_z, top_z));
     return its;
 }
 
