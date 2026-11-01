@@ -247,8 +247,9 @@ std::vector<coordf_t> layer_height_profile_from_ranges(
     for (t_layer_config_ranges::const_iterator it_range = layer_config_ranges.begin(); it_range != layer_config_ranges.end(); ++it_range) {
         coordf_t lo = it_range->first.first;
         coordf_t hi = std::min(it_range->first.second, slicing_params.object_print_z_height());
-        coordf_t height = slicing_params.to_base_layer_height(
-            it_range->second.option("layer_height")->getFloat());
+        // a range without a layer height, from a file not written here, keeps the default one
+        const ConfigOption *layer_height_opt = it_range->second.option("layer_height");
+        coordf_t height = slicing_params.to_base_layer_height(layer_height_opt ? layer_height_opt->getFloat() : slicing_params.layer_height);
         if (!ranges_non_overlapping.empty())
             // Trim current low with the last high.
             lo = std::max(lo, ranges_non_overlapping.back().first.second);
