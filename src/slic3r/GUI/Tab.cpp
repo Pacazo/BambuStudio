@@ -4057,6 +4057,9 @@ void TabPrintModel::on_value_change(const std::string& opt_id, const boost::any&
     // always add object config
     bool set   = true; // *m_config->option(k) != *m_prints.get_selected_preset().config.option(k) || inull != m_null_keys.end();
     auto tab_opt = dynamic_cast<ConfigOptionVectorBase *>(m_config->option(opt_key));
+    // with extruders of the same type the nozzles are not told apart in the UI, so a value set
+    // on an object or a height range is meant for all of them
+    const bool fill_all_variants = m_preset_bundle && m_preset_bundle->has_equivalent_extruders();
     static std::map<ConfigOptionType, ConfigOptionVectorBase const *> null_vecs {
         {coBools, new ConfigOptionBoolsNullable(std::initializer_list<unsigned char>{ConfigOptionBoolsNullable::nil_value()})},
         {coInts, new ConfigOptionIntsNullable(1, ConfigOptionIntsNullable::nil_value())},
@@ -4093,8 +4096,16 @@ void TabPrintModel::on_value_change(const std::string& opt_id, const boost::any&
             for (auto config : m_object_configs) {
                 auto opt = config.second->option(opt_key);
                 auto opt2 = opt ? opt->clone() : null_vecs[tab_opt->type()]->clone();
-                dynamic_cast<ConfigOptionVectorBase *>(opt2)->resize(tab_opt->size());
-                dynamic_cast<ConfigOptionVectorBase *>(opt2)->set_at(tab_opt, opt_index, opt_index);
+                auto vec2 = dynamic_cast<ConfigOptionVectorBase *>(opt2);
+                vec2->resize(tab_opt->size());
+                // the field edits the option of the object, not the one of a single nozzle: fill
+                // every extruder variant, or the ones left nil keep the value of the preset for
+                // the nozzles that read them
+                if (fill_all_variants)
+                    for (size_t i = 0; i < tab_opt->size(); ++i)
+                        vec2->set_at(tab_opt, i, opt_index);
+                else
+                    vec2->set_at(tab_opt, opt_index, opt_index);
                 config.second->set_key_value(opt_key, opt2);
             }
         }
