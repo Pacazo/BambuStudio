@@ -854,9 +854,56 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     // insert folder button into timelapse PrintOption's own sizer (after title, before tips)
     option_timelapse->insert_extra_widget(m_timelapse_folder_btn);
 
+    // start delay: a job option, not a slicing parameter, so it is not saved with the printer
+    // nor with the project and starts at 0 on every send
+    m_start_delay_panel = new wxPanel(m_options_other);
+    m_start_delay_panel->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    m_start_delay_panel->SetMinSize(wxSize(-1, FromDIP(28)));
+
+    const wxString start_delay_tooltip = _L("Minutes the printer waits before running the start G-code: nothing is heated, "
+                                            "homed or calibrated until the delay is over. While waiting, the progress stays "
+                                            "at 0% and the remaining time counts down the delay; the estimated print time "
+                                            "does not include it. 0 starts the print immediately.");
+
+    // red mark: custom option
+    auto start_delay_mark = new Label(m_start_delay_panel, ::Label::Body_13, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
+    start_delay_mark->SetForegroundColour(wxColour(230, 0, 0));
+    start_delay_mark->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    start_delay_mark->SetToolTip(_L("Custom parameter"));
+    start_delay_mark->Show(wxGetApp().show_custom_marks());
+
+    auto start_delay_title = new Label(m_start_delay_panel, _L("Start delay"));
+    start_delay_title->SetFont(Label::Body_13);
+    start_delay_title->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    start_delay_title->SetToolTip(start_delay_tooltip);
+
+    auto start_delay_tips = new ScalableButton(m_start_delay_panel, wxID_ANY, "icon_qusetion", wxEmptyString,
+        wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, true);
+    start_delay_tips->SetMinSize(wxSize(FromDIP(18), FromDIP(18)));
+    start_delay_tips->SetMaxSize(wxSize(FromDIP(18), FromDIP(18)));
+    start_delay_tips->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    start_delay_tips->SetToolTip(start_delay_tooltip);
+
+    m_start_delay_input = new SpinInput(m_start_delay_panel, wxEmptyString, _L("min"), wxDefaultPosition,
+                                        wxSize(FromDIP(100), -1), wxTE_PROCESS_ENTER, 0, 1440, 0);
+    m_start_delay_input->SetFont(Label::Body_13);
+    m_start_delay_input->SetToolTip(start_delay_tooltip);
+
+    wxBoxSizer *start_delay_sizer = new wxBoxSizer(wxHORIZONTAL);
+    start_delay_sizer->Add(start_delay_mark, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
+    start_delay_sizer->Add(start_delay_title, 0, wxALIGN_CENTER_VERTICAL, 0);
+    start_delay_sizer->Add(start_delay_tips, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(2));
+    start_delay_sizer->AddStretchSpacer();
+    start_delay_sizer->Add(m_start_delay_input, 0, wxALIGN_CENTER_VERTICAL, 0);
+    m_start_delay_panel->SetSizer(start_delay_sizer);
+    m_start_delay_panel->Layout();
+    m_start_delay_panel->Fit();
+
     auto options_sizer = new wxBoxSizer(wxVERTICAL);
 
     m_sizer_options = new wxGridSizer(0, 2, FromDIP(5), FromDIP(10));
+    m_sizer_options->Add(m_start_delay_panel, 0, wxEXPAND);
+    m_sizer_options->AddStretchSpacer();
     m_sizer_options->Add(option_timelapse, 0, wxEXPAND);
     m_sizer_options->Add(option_auto_bed_level, 0, wxEXPAND);
     m_sizer_options->Add(option_flow_dynamics_cali, 0, wxEXPAND);
@@ -2869,10 +2916,25 @@ void SelectMachineDialog::update_scroll_area_size() {
 
 void SelectMachineDialog::update_options_layout()
 {
+    // the waits are injected while the file is being prepared, so the delay needs a slicing
+    // result of our own: an already sliced file is sent as it is
+    bool start_delay_changed = false;
+    if (m_start_delay_panel) {
+        const bool can_delay = m_print_type == PrintFromType::FROM_NORMAL && !m_plater->using_exported_file();
+        if (m_start_delay_panel->IsShown() != can_delay) {
+            m_start_delay_panel->Show(can_delay);
+            start_delay_changed = true;
+            if (!can_delay && m_start_delay_input)
+                m_start_delay_input->SetValue(0);
+        }
+    }
+
     std::unordered_set<wxWindow*> shown_options;
     const wxSizerItemList& children = m_sizer_options->GetChildren();
     for (auto item : children) {
-        if (item && item->IsWindow()) { shown_options.insert(item->GetWindow()); }
+        if (item && item->IsWindow() && item->GetWindow() != m_start_delay_panel) {
+            shown_options.insert(item->GetWindow());
+        }
     }
 
     std::unordered_set<wxWindow *> toshow_options;
@@ -2881,8 +2943,13 @@ void SelectMachineDialog::update_options_layout()
     }
 
     /*To show changed, update layout*/
-    if (shown_options != toshow_options) {
+    if (shown_options != toshow_options || start_delay_changed) {
         m_sizer_options->Clear();
+        // the start delay keeps the first cell, the one beside it is free for another option
+        if (m_start_delay_panel && m_start_delay_panel->IsShown()) {
+            m_sizer_options->Add(m_start_delay_panel, 0, wxEXPAND);
+            m_sizer_options->AddStretchSpacer();
+        }
         for (auto option : m_checkbox_list_order) {
             if (option->IsShown()) { m_sizer_options->Add(option, 0, wxEXPAND); }
         }
@@ -3613,6 +3680,8 @@ void SelectMachineDialog::on_send_print()
     sending_mode();
     if (m_print_job) { m_print_job->reset_print_stage(); }
     m_status_bar->enable_cancel_button();
+
+    m_plater->set_start_delay(m_start_delay_input ? m_start_delay_input->GetValue() : 0);
 
     const bool is_imported_3mf = m_print_type == PrintFromType::FROM_NORMAL && m_plater->using_exported_file();
     if (is_imported_3mf) {
@@ -5172,6 +5241,10 @@ void SelectMachineDialog::on_dpi_changed(const wxRect &suggested_rect)
 
 void SelectMachineDialog::set_default()
 {
+    // the start delay belongs to the job only, it is not remembered between sends
+    if (m_start_delay_input)
+        m_start_delay_input->SetValue(0);
+
     if (m_print_type == PrintFromType::FROM_NORMAL) {
         m_printer_box->SetDefault(false);
         m_rename_normal_panel->Show(true);

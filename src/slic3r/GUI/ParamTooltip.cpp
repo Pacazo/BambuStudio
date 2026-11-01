@@ -112,7 +112,7 @@ bool is_custom_tooltip(const std::string &opt_key)
         "long_retractions_when_ec", "machine_hotend_change_time", "min_line_width_on_interface", "nozzle_diameter",
         "other_layers_sequence_choice", "outer_wall_jerk", "override_bed_temperature", "override_chamber_temperature",
         "prime_tower_infill_gap", "retraction_distances_when_ec", "retraction_speed", "slowdown_end_acc", "slowdown_end_speed",
-        "slowdown_start_acc", "slowdown_start_speed", "start_delay", "support_base_pattern", "support_base_pattern_spacing",
+        "slowdown_start_acc", "slowdown_start_speed", "support_base_pattern", "support_base_pattern_spacing",
         "support_interface_speed", "support_ironing_pattern", "support_line_width", "support_speed", "time_lapse_gcode", "top_surface_jerk",
         "travel_jerk", "wall_filament", "wrapping_detection_gcode", "z_hop_types",
     };

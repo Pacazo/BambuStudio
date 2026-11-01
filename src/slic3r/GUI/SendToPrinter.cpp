@@ -574,6 +574,42 @@ SendToPrinterDialog::SendToPrinterDialog(Plater *plater)
         e.Skip();
         });
 
+    // start delay: a job option, not a slicing parameter, so it is not saved with the printer
+    // nor with the project and starts at 0 on every send
+    m_start_delay_panel = new wxPanel(this);
+    m_start_delay_panel->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+
+    const wxString start_delay_tooltip = _L("Minutes the printer waits before running the start G-code: nothing is heated, "
+                                            "homed or calibrated until the delay is over. While waiting, the progress stays "
+                                            "at 0% and the remaining time counts down the delay; the estimated print time "
+                                            "does not include it. 0 starts the print immediately.");
+
+    // red mark: custom option
+    auto start_delay_mark = new Label(m_start_delay_panel, ::Label::Body_13, wxString::FromUTF8("\xE2\x97\x8F")); // U+25CF
+    start_delay_mark->SetForegroundColour(wxColour(230, 0, 0));
+    start_delay_mark->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    start_delay_mark->SetToolTip(_L("Custom parameter"));
+    start_delay_mark->Show(wxGetApp().show_custom_marks());
+
+    auto start_delay_title = new Label(m_start_delay_panel, _L("Start delay"));
+    start_delay_title->SetFont(::Label::Body_13);
+    start_delay_title->SetBackgroundColour(StateColor::darkModeColorFor(*wxWHITE));
+    start_delay_title->SetToolTip(start_delay_tooltip);
+
+    m_start_delay_input = new SpinInput(m_start_delay_panel, wxEmptyString, _L("min"), wxDefaultPosition,
+                                        wxSize(FromDIP(100), -1), wxTE_PROCESS_ENTER, 0, 1440, 0);
+    m_start_delay_input->SetFont(::Label::Body_13);
+    m_start_delay_input->SetToolTip(start_delay_tooltip);
+
+    wxBoxSizer *start_delay_sizer = new wxBoxSizer(wxHORIZONTAL);
+    start_delay_sizer->Add(start_delay_mark, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
+    start_delay_sizer->Add(start_delay_title, 0, wxALIGN_CENTER_VERTICAL, 0);
+    start_delay_sizer->AddStretchSpacer();
+    start_delay_sizer->Add(m_start_delay_input, 0, wxALIGN_CENTER_VERTICAL, 0);
+    m_start_delay_panel->SetSizer(start_delay_sizer);
+    m_start_delay_panel->Layout();
+    m_start_delay_panel->Fit();
+
     m_sizer_main->Add(m_line_top, 0, wxEXPAND, 0);
     m_sizer_main->Add(0, 0, 0, wxTOP, FromDIP(10));
     m_sizer_main->Add(m_scrollable_region, 0, wxALIGN_CENTER_HORIZONTAL, 0);
@@ -584,6 +620,8 @@ SendToPrinterDialog::SendToPrinterDialog(Plater *plater)
     m_sizer_main->Add(0, 0, 0, wxEXPAND | wxTOP, FromDIP(12));
     m_sizer_main->Add(m_sizer_printer, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(30));
     m_sizer_main->Add(m_storage_panel, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP , FromDIP(8));
+    m_sizer_main->Add(0, 0, 0, wxEXPAND | wxTOP, FromDIP(8));
+    m_sizer_main->Add(m_start_delay_panel, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(30));
     m_sizer_main->Add(0, 0, 0, wxEXPAND | wxTOP, FromDIP(11));
     m_sizer_main->Add(m_statictext_printer_msg, 0, wxALIGN_CENTER_HORIZONTAL, 0);
     m_sizer_main->Add(m_connecting_panel, 0, wxALIGN_CENTER_HORIZONTAL, 0);
@@ -893,6 +931,8 @@ void SendToPrinterDialog::on_ok(wxCommandEvent &event)
 
     // enter sending mode
     sending_mode();
+
+    m_plater->set_start_delay(m_start_delay_input ? m_start_delay_input->GetValue() : 0);
 
     if (wxGetApp().plater()->using_exported_file() || wxGetApp().plater()->only_gcode_mode()) {
         m_plater->set_print_job_plate_idx(m_print_plate_idx);
@@ -1547,6 +1587,15 @@ void SendToPrinterDialog::on_dpi_changed(const wxRect &suggested_rect)
 
 void SendToPrinterDialog::set_default()
 {
+    // the start delay belongs to the job only, it is not remembered between sends
+    if (m_start_delay_input)
+        m_start_delay_input->SetValue(0);
+
+    // the waits are injected while the file is being prepared, so the delay needs a slicing
+    // result of our own: an already sliced file is sent as it is
+    if (m_start_delay_panel)
+        m_start_delay_panel->Show(!m_plater->using_exported_file() && !m_plater->only_gcode_mode());
+
     //project name
     m_rename_switch_panel->SetSelection(0);
 

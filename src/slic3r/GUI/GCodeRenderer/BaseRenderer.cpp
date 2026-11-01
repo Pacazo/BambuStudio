@@ -2227,7 +2227,7 @@ namespace Slic3r
                     ImGui::SameLine();
                     imgui.text(_u8L("Total time") + ":");
                     ImGui::SameLine();
-                    imgui.text(short_time(get_time_dhms(time_mode.time + 60.0f * m_gcode_result->start_delay_min)));
+                    imgui.text(short_time(get_time_dhms(time_mode.time)));
                     break;
                 }
                 case EViewType::ColorPrint:
@@ -2703,7 +2703,6 @@ namespace Slic3r
                     if (auto timelapse_time_iter = m_gcode_result->skippable_part_time.find(SkipType::stTimelapse); timelapse_time_iter != m_gcode_result->skippable_part_time.end()) {
                         timelapse_time = timelapse_time_iter->second;
                     }
-                    const float start_delay_time = 60.0f * m_gcode_result->start_delay_min;
                     ImGui::Dummy(ImVec2(0.0f, ImGui::GetFontSize() * 0.1));
                     ImGui::Dummy({ window_padding, window_padding });
                     ImGui::SameLine();
@@ -2718,7 +2717,6 @@ namespace Slic3r
                         prepare_str = _u8L("Prepare time");
                     std::string print_str = _u8L("Model printing time");
                     std::string total_str = _u8L("Total time");
-                    std::string start_delay_str = _u8L("Start delay");
                     float max_len = window_padding + 2 * ImGui::GetStyle().ItemSpacing.x;
                     if (time_mode.layers_times.empty())
                         max_len += ImGui::CalcTextSize(total_str.c_str()).x;
@@ -2732,8 +2730,6 @@ namespace Slic3r
                             max_len += std::max(ImGui::CalcTextSize(print_str.c_str()).x,
                                 (std::max(ImGui::CalcTextSize(prepare_str.c_str()).x, ImGui::CalcTextSize(total_str.c_str()).x)));
                     }
-                    if (start_delay_time != 0.0f)
-                        max_len = std::max(max_len, window_padding + 2 * ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize(start_delay_str.c_str()).x);
                     if (m_view_type == EViewType::FeatureType) {
                         //BBS display filament cost
                         ImGui::Dummy({ window_padding, window_padding });
@@ -2771,13 +2767,6 @@ namespace Slic3r
                         auto it = std::find_if(time_mode.roles_times.begin(), time_mode.roles_times.end(), [role](const std::pair<ExtrusionRole, float>& item) { return role == item.first; });
                         return (it != time_mode.roles_times.end()) ? it->second : 0.0f;
                         };
-                    if (start_delay_time != 0.0f) {
-                        ImGui::Dummy({ window_padding, window_padding });
-                        ImGui::SameLine();
-                        imgui.text(start_delay_str + ":");
-                        ImGui::SameLine(max_len);
-                        imgui.text(short_time(get_time_dhms(start_delay_time)));
-                    }
                     //BBS: start gcode is mostly same with prepeare time
                     if (time_mode.prepare_time != 0.0f) {
                         ImGui::Dummy({ window_padding, window_padding });
@@ -2798,7 +2787,7 @@ namespace Slic3r
                     ImGui::SameLine();
                     imgui.text(total_str + ":");
                     ImGui::SameLine(max_len);
-                    imgui.text(short_time(get_time_dhms(time_mode.time + start_delay_time)));
+                    imgui.text(short_time(get_time_dhms(time_mode.time)));
                     auto show_mode_button = [this, &imgui, can_show_mode_button](const wxString& label, PrintEstimatedStatistics::ETimeMode mode) {
                         if (can_show_mode_button(mode)) {
                             if (imgui.button(label)) {

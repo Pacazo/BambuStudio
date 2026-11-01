@@ -679,23 +679,7 @@ void GCodeProcessor::TimeProcessor::post_process(const std::string& filename, st
         if (line.length() > 1) {
             line = line.substr(1);
             if (line == reserved_tag(ETags::First_Line_M73_Placeholder) || line == reserved_tag(ETags::Last_Line_M73_Placeholder)) {
-                // start delay, after the time estimate so that it is not counted in it
-                if (line == reserved_tag(ETags::First_Line_M73_Placeholder) && context.start_delay_min > 0) {
-                    if (s_IsBBLPrinter) {
-                        ret += "M1002 gcode_claim_action : 30\n";
-                        ++extra_lines_count;
-                    }
-                    for (int minutes_left = context.start_delay_min; minutes_left > 0; --minutes_left) {
-                        for (size_t i = 0; i < static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count); ++i) {
-                            if (machines[i].enabled) {
-                                ret += format_line_M73_main(machines[i].line_m73_main_mask, 0, minutes_left);
-                                ++extra_lines_count;
-                            }
-                        }
-                        ret += s_IsBBLPrinter ? "M400 S60\n" : "G4 P60000\n";
-                        ++extra_lines_count;
-                    }
-                }
+                // the start delay is injected into the sent file instead, see GCodeStartDelay
                 for (size_t i = 0; i < static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count); ++i) {
                     const TimeMachine& machine = machines[i];
                     if (machine.enabled) {
@@ -1578,7 +1562,6 @@ void GCodeProcessorResult::reset() {
     time = 0;
     optimal_assignment.clear();
     pause_printing.clear();
-    start_delay_min = 0;
     used_mixed_filaments.clear();
     directly_used_filaments.clear();
 
@@ -1622,7 +1605,6 @@ void GCodeProcessorResult::reset() {
     optimal_assignment.clear();
     pause_printing.clear();
     skippable_part_time.clear();
-    start_delay_min = 0;
     warnings.clear();
     used_mixed_filaments.clear();
     directly_used_filaments.clear();
@@ -1985,7 +1967,6 @@ void GCodeProcessor::apply_config(const PrintConfig& config)
     m_parser.apply_config(config);
 
     m_flavor = config.gcode_flavor;
-    m_start_delay_min = config.start_delay.value;
 
     // BBS
     size_t filament_count = config.filament_diameter.values.size();
@@ -2872,8 +2853,6 @@ void GCodeProcessor::finalize(bool post_process)
             m_nozzle_diameter,
             m_filament_variant_rows
         );
-        context.start_delay_min = m_start_delay_min;
-        m_result.start_delay_min = m_start_delay_min;
         m_time_processor.post_process(m_result.filename, m_result.moves, m_result.lines_ends, context);
     }
 

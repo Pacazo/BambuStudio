@@ -34,6 +34,7 @@
 #include "Widgets/Label.hpp"
 #include "Widgets/Button.hpp"
 #include "Widgets/CheckBox.hpp"
+#include "Widgets/SpinInput.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/ScrolledWindow.hpp"
 #include <wx/simplebook.h>
@@ -93,6 +94,9 @@ private:
     wxPanel*                            m_panel_image{ nullptr };
     wxPanel*                            m_rename_normal_panel{ nullptr };
     wxPanel*                            m_line_materia{ nullptr };
+    // start delay: minutes to wait before the start gcode, applied to the file sent
+    wxPanel*                            m_start_delay_panel{ nullptr };
+    SpinInput*                          m_start_delay_input{ nullptr };
     wxBoxSizer*                         m_storage_sizer{ nullptr };
     wxPanel*                            m_storage_panel{ nullptr };
     wxPanel *                           m_connecting_panel{nullptr};

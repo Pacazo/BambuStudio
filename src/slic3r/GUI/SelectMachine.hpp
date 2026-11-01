@@ -42,6 +42,7 @@
 #include "Widgets/Button.hpp"
 #include "Widgets/StaticBox.hpp"
 #include "Widgets/CheckBox.hpp"
+#include "Widgets/SpinInput.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/ScrolledWindow.hpp"
 #include "Widgets/PopupWindow.hpp"
@@ -381,6 +382,9 @@ protected:
     Label*                              m_options_line_close{nullptr};
     wxGridSizer*                        m_sizer_options{nullptr};
     wxBoxSizer*                         m_sizer_thumbnail{ nullptr };
+    // start delay: minutes to wait before the start gcode, applied to the file sent
+    wxPanel*                            m_start_delay_panel{nullptr};
+    SpinInput*                          m_start_delay_input{nullptr};
     wxPanel*                            m_pa_value_panel{nullptr};
     Label*                              m_pa_value_message{nullptr};
     SwitchButton*                       m_pa_value_switch{nullptr};

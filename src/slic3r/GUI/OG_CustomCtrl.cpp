@@ -46,7 +46,6 @@ static bool is_custom_option(const std::string& opt_id)
         "disable_chamber_cooling",
         "override_bed_temperature",
         "bed_temperature_override",
-        "start_delay",
         "filament_cost",
     };
     return custom_options.count(opt_id.substr(0, opt_id.find('#'))) > 0;

@@ -316,8 +316,6 @@ namespace Slic3r {
         std::map<std::pair<int,int>, int > filament_change_count_map;
 
         std::unordered_map<SkipType, float> skippable_part_time;
-        // minutes waited before the start gcode, not included in print_statistics
-        int start_delay_min{ 0 };
 
         BedType bed_type = BedType::btCount;
 
@@ -373,7 +371,6 @@ namespace Slic3r {
             optimal_assignment = other.optimal_assignment;
             pause_printing = other.pause_printing;
             skippable_part_time = other.skippable_part_time;
-            start_delay_min = other.start_delay_min;
             used_filaments = other.used_filaments;
             used_mixed_filaments = other.used_mixed_filaments;
             directly_used_filaments        = other.directly_used_filaments;
@@ -820,7 +817,6 @@ namespace Slic3r {
             std::vector<ExtruderType> extruder_types;
             std::vector<double> nozzle_diameter;
             FilamentVariantRows filament_variant_rows;
-            int start_delay_min{ 0 }; // minutes to wait before the start G-code, not counted in the times
 
             TimeProcessContext(
                 const UsedFilaments& used_filaments_,
@@ -1252,7 +1248,6 @@ namespace Slic3r {
         bool m_detect_layer_based_on_tag {false};
         int m_seams_count;
         bool m_measure_g29_time {false};
-        int m_start_delay_min {0};
 #if ENABLE_GCODE_VIEWER_STATISTICS
         std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS

@@ -76,6 +76,7 @@
 #include "libslic3r/Format/bbs_3mf.hpp"
 #include "libslic3r/TexturePainting.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/GCode/StartDelay.hpp"
 #include "Gizmos/GLGizmoAlignment.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelArrange.hpp"
@@ -10462,6 +10463,8 @@ public:
     std::string                 last_output_dir_path;
     //BBS store machine_sn and 3mf_path for PrintJob
     PrintPrepareData            m_print_job_data;
+    // minutes to wait before the start gcode, only applied to the file sent
+    int                         m_start_delay { 0 };
     bool                        inside_snapshot_capture() { return m_prevent_snapshots != 0; }
     int                         process_completed_with_error { -1 }; //-1 means no error
 
@@ -21313,6 +21316,16 @@ void Plater::get_print_job_data(PrintPrepareData* data)
     }
 }
 
+void Plater::set_start_delay(int minutes)
+{
+    p->m_start_delay = minutes;
+}
+
+int Plater::get_start_delay() const
+{
+    return p->m_start_delay;
+}
+
 void Plater::set_print_job_plate_idx(int plate_idx)
 {
     if (plate_idx == PLATE_CURRENT_IDX) {
@@ -28749,7 +28762,35 @@ int Plater::send_gcode(int plate_idx, Export3mfProgressFn proFn)
         strategy = SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode;
 #endif
 
+    // the start delay is not a slicing parameter: send a copy with the waits, keeping the
+    // sliced gcode and the preview untouched
+    std::string  delayed_gcode;
+    GCodeProcessorResult *gcode_result = plate->get_slice_result();
+    if (p->m_start_delay > 0 && gcode_result && !gcode_result->filename.empty()) {
+        boost::filesystem::path delayed_path(plate->get_tmp_gcode_path());
+        delayed_path.replace_extension("delay.gcode");
+        if (inject_start_delay(gcode_result->filename, delayed_path.string(), p->m_start_delay))
+            delayed_gcode = delayed_path.string();
+        else
+            BOOST_LOG_TRIVIAL(error) << "send_gcode: could not apply the start delay, sending without it";
+    }
+
+    std::string sliced_gcode;
+    if (!delayed_gcode.empty()) {
+        sliced_gcode = gcode_result->filename;
+        gcode_result->filename = delayed_gcode;
+    }
+
     result = export_3mf(p->m_print_job_data._3mf_path, strategy, plate_idx, proFn);
+
+    if (!delayed_gcode.empty()) {
+        gcode_result->filename = sliced_gcode;
+        boost::system::error_code ec;
+        boost::filesystem::remove(delayed_gcode, ec);
+    }
+
+    // belongs to the job just sent, the next one sets it again
+    p->m_start_delay = 0;
 
     return result;
 }
