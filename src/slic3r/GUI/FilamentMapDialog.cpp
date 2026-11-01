@@ -1,6 +1,7 @@
 #include "FilamentMapDialog.hpp"
 #include "FilamentMapPanel.hpp"
 #include "Widgets/Button.hpp"
+#include "Widgets/CheckBox.hpp"
 #include "Widgets/LinkLabel.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
@@ -8,6 +9,7 @@
 #include "CapsuleButton.hpp"
 #include "MsgDialog.hpp"
 #include "PartPlate.hpp"
+#include "Tab.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Log.hpp"
@@ -41,7 +43,7 @@ public:
         main_sizer->AddSpacer(FromDIP(spacing));
 
         // smart filament section
-        m_smart_filament_checkbox = new CheckBox(this);
+        m_smart_filament_checkbox = new ::CheckBox(this);
         m_smart_filament_checkbox->SetValue(enable_filament_dynamic_map()->getBool());
         m_smart_filament_checkbox->Bind(wxEVT_TOGGLEBUTTON, &SmartFilamentPanel::on_smart_filament_checkbox, this);
 
@@ -81,7 +83,7 @@ private:
     }
 
 private:
-    CheckBox *m_smart_filament_checkbox{};
+    ::CheckBox *m_smart_filament_checkbox{};
 };
 
 static std::vector<FilamentMapMode> normalize_auto_modes(const std::vector<FilamentMapMode>& modes)
@@ -239,6 +241,25 @@ static bool get_last_custom_filament_map(std::vector<int>& filament_maps, std::v
     return !filament_maps.empty();
 }
 
+// store the mode chosen in the dialog back into filament_grouping_mode, so ask only asks once
+static void remember_grouping_mode(FilamentMapMode mode)
+{
+    FilamentGroupingMode grouping_mode;
+    switch (mode) {
+    case fmmAutoForFlush:   grouping_mode = fgmFilamentSaving; break;
+    case fmmAutoForMatch:   grouping_mode = fgmConvenience; break;
+    case fmmAutoForQuality: grouping_mode = fgmQuality; break;
+    case fmmManual:         grouping_mode = fgmCustom; break;
+    default: return;
+    }
+    Tab* print_tab = wxGetApp().get_tab(Preset::TYPE_PRINT);
+    if (!print_tab)
+        return;
+    DynamicPrintConfig new_conf;
+    new_conf.set_key_value("filament_grouping_mode", new ConfigOptionEnum<FilamentGroupingMode>(grouping_mode));
+    print_tab->load_config(new_conf);
+}
+
 extern std::string& get_left_extruder_unprintable_text();
 extern std::string& get_right_extruder_unprintable_text();
 
@@ -291,13 +312,15 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
         return true;
     }
 
-    FilamentGroupingMode grouping_mode = explicit_request ? fgmDefault :
-        full_config.option<ConfigOptionEnum<FilamentGroupingMode>>("filament_grouping_mode")->value;
-    if (grouping_mode == fgmFilamentSaving || grouping_mode == fgmConvenience) {
-        // skip the dialog and apply the preferred auto mode; like the dialog, fall back to filament saving when convenience is unavailable
+    FilamentGroupingMode configured_mode = full_config.option<ConfigOptionEnum<FilamentGroupingMode>>("filament_grouping_mode")->value;
+    FilamentGroupingMode grouping_mode = explicit_request ? fgmAsk : configured_mode;
+    if (grouping_mode == fgmFilamentSaving || grouping_mode == fgmConvenience || grouping_mode == fgmQuality) {
+        // skip the dialog and apply the preferred auto mode; like the dialog, fall back to filament saving when unavailable
         FilamentMapMode preferred_mode = fmmAutoForFlush;
         if (grouping_mode == fgmConvenience && plater_ref->get_machine_sync_status())
             preferred_mode = fmmAutoForMatch;
+        else if (grouping_mode == fgmQuality)
+            preferred_mode = fmmAutoForQuality;
         FilamentMapMode new_mode = resolve_available_auto_modes(partplate_ref->fff_print(), { preferred_mode }, plater_ref->get_machine_sync_status()).front();
         std::vector<PartPlate*> plates = is_slice_all ? plater_ref->get_partplate_list().get_plate_list() : std::vector<PartPlate*>{ partplate_ref };
         bool changed = false;
@@ -435,6 +458,8 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
         std::vector<int> new_volume_maps = map_dlg.get_filament_volume_maps();
         if (new_mode == fmmManual)
             remember_custom_filament_map(new_maps, new_volume_maps);
+        if (configured_mode == fgmAsk)
+            remember_grouping_mode(new_mode);
 
         // Backend representation of new_maps, only filled on single-extruder multi-nozzle machines.
         std::vector<int> backend_filament_maps;

@@ -920,9 +920,10 @@ static const t_config_enum_values s_keys_map_FilamentMapMode = {
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FilamentMapMode)
 
 static const t_config_enum_values s_keys_map_FilamentGroupingMode = {
-    { "default", fgmDefault },
+    { "ask", fgmAsk },
     { "filament_saving", fgmFilamentSaving },
     { "convenience", fgmConvenience },
+    { "quality", fgmQuality },
     { "custom", fgmCustom }
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(FilamentGroupingMode)
@@ -6190,21 +6191,23 @@ void PrintConfigDef::init_fff_params()
     def = this->add("filament_grouping_mode", coEnum);
     def->label = L("Filament grouping mode");
     def->tooltip = L("How filaments are grouped between the nozzles before slicing on multi-extruder printers. "
-                     "Default keeps the original behaviour. "
-                     "Filament-Saving and Convenience skip the dialog and apply that auto grouping mode. "
-                     "Convenience falls back to Filament-Saving when the printer is not connected. "
+                     "Ask shows the grouping dialog and then stores the mode chosen there in this setting. "
+                     "Filament-Saving, Convenience and Quality skip the dialog and apply that auto grouping mode. "
+                     "Convenience and Quality fall back to Filament-Saving when unavailable. "
                      "Custom skips the dialog and applies the last custom grouping; the dialog is shown only until a custom grouping has been set.");
     def->enum_keys_map = &ConfigOptionEnum<FilamentGroupingMode>::get_enum_values();
-    def->enum_values.emplace_back("default");
+    def->enum_values.emplace_back("ask");
     def->enum_values.emplace_back("filament_saving");
     def->enum_values.emplace_back("convenience");
+    def->enum_values.emplace_back("quality");
     def->enum_values.emplace_back("custom");
-    def->enum_labels.emplace_back(L("Default"));
+    def->enum_labels.emplace_back(L("Ask"));
     def->enum_labels.emplace_back(L("Filament-Saving"));
     def->enum_labels.emplace_back(L("Convenience"));
+    def->enum_labels.emplace_back(L("Quality"));
     def->enum_labels.emplace_back(L("Custom"));
     def->mode = comSimple;
-    def->set_default_value(new ConfigOptionEnum<FilamentGroupingMode>(fgmDefault));
+    def->set_default_value(new ConfigOptionEnum<FilamentGroupingMode>(fgmAsk));
 
     def = this->add("override_chamber_temperature", coBool);
     def->label = L("Override chamber temperature");
@@ -8483,6 +8486,8 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
         value = "tree(manual)";
     } else if (opt_key == "support_type" && value == "hybrid(auto)") {
         value = "tree(auto)";
+    } else if (opt_key == "filament_grouping_mode" && value == "default") {
+        value = "ask";
     } else if (opt_key == "support_base_pattern" && value == "none") {
         value = "hollow";
     } else if (opt_key == "infill_anchor") {

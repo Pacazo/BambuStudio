@@ -419,9 +419,10 @@ enum FilamentMetalStickiness {
 
 // How the filament grouping dialog is handled before slicing
 enum FilamentGroupingMode {
-    fgmDefault,         // original behaviour
+    fgmAsk,             // show the dialog, then remember the chosen mode here
     fgmFilamentSaving,  // skip the dialog, auto for flush
     fgmConvenience,     // skip the dialog, auto for match
+    fgmQuality,         // skip the dialog, auto for quality
     fgmCustom           // skip the dialog, apply the last custom grouping
 };
 
