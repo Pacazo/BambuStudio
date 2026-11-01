@@ -6787,8 +6787,10 @@ std::string GUI_App::format_display_version()
             ++j;
     }
 
+    // mark: inside the parentheses, the commit and build date are custom
+    std::string mark = wxGetApp().show_custom_marks() ? "\xE2\x97\x8F " : ""; // U+25CF
     std::string commit = build_info_commit();
-    version_display += " (" + (commit.empty() ? "" : commit + ", ") + build_info_datetime() + ")";
+    version_display += " (" + mark + (commit.empty() ? "" : commit + ", ") + build_info_datetime() + ")";
     return version_display;
 }
 
