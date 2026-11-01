@@ -3573,6 +3573,27 @@ void TabPrint::toggle_options()
         }
         cb->SetValue(n);
     }
+
+    // quality grouping needs extruders of different types, it is last in the enum so that
+    // dropping it here leaves the index of the other modes untouched
+    if (auto choice = dynamic_cast<Choice *>(m_active_page->get_field("filament_grouping_mode"))) {
+        auto  def   = print_config_def.get("filament_grouping_mode");
+        auto &opt   = const_cast<ConfigOptionDef &>(choice->m_opt);
+        auto  cb    = dynamic_cast<ComboBox *>(choice->window);
+        auto  n     = cb->GetValue();
+        size_t count = def->enum_values.size();
+        if (m_preset_bundle && m_preset_bundle->has_equivalent_extruders())
+            --count;
+        opt.enum_values.clear();
+        opt.enum_labels.clear();
+        cb->Clear();
+        for (size_t i = 0; i < count; ++i) {
+            opt.enum_values.push_back(def->enum_values[i]);
+            opt.enum_labels.push_back(def->enum_labels[i]);
+            cb->Append(_(def->enum_labels[i]));
+        }
+        cb->SetValue(n);
+    }
 }
 
 void TabPrint::update()

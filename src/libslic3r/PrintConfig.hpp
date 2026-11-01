@@ -422,8 +422,8 @@ enum FilamentGroupingMode {
     fgmAsk,             // show the dialog, then remember the chosen mode here
     fgmFilamentSaving,  // skip the dialog, auto for flush
     fgmConvenience,     // skip the dialog, auto for match
-    fgmQuality,         // skip the dialog, auto for quality
-    fgmCustom           // skip the dialog, apply the last custom grouping
+    fgmCustom,          // skip the dialog, apply the last custom grouping
+    fgmQuality          // skip the dialog, auto for quality; last, it is hidden on some printers
 };
 
 inline bool is_auto_filament_map_mode(FilamentMapMode mode) {

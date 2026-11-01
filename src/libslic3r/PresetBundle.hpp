@@ -446,6 +446,8 @@ public:
     //BBS: add some functions for multiple extruders
     int get_printer_extruder_count() const;
     bool support_different_extruders();
+    // all extruders of the same type print alike, so the UI does not separate them
+    bool has_equivalent_extruders() const;
     std::vector<int> get_default_nozzle_volume_types_for_filaments(std::vector<int>& f_maps);
 
     // Load user configuration and store it into the user profiles.

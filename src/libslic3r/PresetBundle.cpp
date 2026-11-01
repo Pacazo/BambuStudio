@@ -4703,6 +4703,20 @@ bool PresetBundle::support_different_extruders()
     return supported;
 }
 
+bool PresetBundle::has_equivalent_extruders() const
+{
+    const Preset &printer_preset = this->printers.get_edited_preset();
+    auto          extruder_types = printer_preset.config.option<ConfigOptionEnumsGeneric>("extruder_type");
+    if (!extruder_types || extruder_types->values.size() < 2)
+        return false;
+
+    for (size_t i = 1; i < extruder_types->values.size(); ++i)
+        if (extruder_types->values[i] != extruder_types->values[0])
+            return false;
+
+    return true;
+}
+
 std::vector<NozzleVolumeType> PresetBundle::get_printer_nozzle_volume_list()
 {
     const Preset& printer_preset = this->printers.get_edited_preset();

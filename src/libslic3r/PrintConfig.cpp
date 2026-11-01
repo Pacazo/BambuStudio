@@ -6199,13 +6199,13 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.emplace_back("ask");
     def->enum_values.emplace_back("filament_saving");
     def->enum_values.emplace_back("convenience");
-    def->enum_values.emplace_back("quality");
     def->enum_values.emplace_back("custom");
+    def->enum_values.emplace_back("quality");
     def->enum_labels.emplace_back(L("Ask"));
     def->enum_labels.emplace_back(L("Filament-Saving"));
     def->enum_labels.emplace_back(L("Convenience"));
-    def->enum_labels.emplace_back(L("Quality"));
     def->enum_labels.emplace_back(L("Custom"));
+    def->enum_labels.emplace_back(L("Quality"));
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<FilamentGroupingMode>(fgmAsk));
 
