@@ -90,7 +90,7 @@ BonjourDialog::BonjourDialog(wxWindow *parent, Slic3r::PrinterTechnology tech)
     StateColor btn_bg_white(std::pair<wxColour, int>(wxColour(206, 206, 206), StateColor::Pressed), std::pair<wxColour, int>(wxColour(238, 238, 238), StateColor::Hovered),
                             std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
 
-    auto m_button_ok = new Button(this, _L("OK"));
+    auto m_button_ok = new Button(this, _L("OK"), "", 0, 0, wxID_OK);
     m_button_ok->SetBackgroundColor(btn_bg_green);
     m_button_ok->SetBorderColor(*wxWHITE);
     m_button_ok->SetTextColor(*wxWHITE);
@@ -99,9 +99,9 @@ BonjourDialog::BonjourDialog(wxWindow *parent, Slic3r::PrinterTechnology tech)
     m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetCornerRadius(FromDIP(12));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { this->EndModal(wxID_OK); });
+    m_button_ok->Bind(wxEVT_BUTTON, [this](auto &e) { this->EndModal(wxID_OK); });
 
-    auto m_button_cancel = new Button(this, _L("Cancel"));
+    auto m_button_cancel = new Button(this, _L("Cancel"), "", 0, 0, wxID_CANCEL);
     m_button_cancel->SetBackgroundColor(btn_bg_white);
     m_button_cancel->SetBorderColor(wxColour(38, 46, 48));
     m_button_cancel->SetFont(Label::Body_12);
@@ -109,7 +109,7 @@ BonjourDialog::BonjourDialog(wxWindow *parent, Slic3r::PrinterTechnology tech)
     m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_cancel->SetCornerRadius(FromDIP(12));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { this->EndModal(wxID_CANCEL); });
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](auto &e) { this->EndModal(wxID_CANCEL); });
 
     button_sizer->AddStretchSpacer();
     button_sizer->Add(m_button_ok, 0, wxALL, FromDIP(5));

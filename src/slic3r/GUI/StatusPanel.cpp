@@ -7766,7 +7766,7 @@ wxBoxSizer *ScoreDialog::get_button_sizer()
     m_button_ok->SetCornerRadius(FromDIP(12));
     bSizer_button->Add(m_button_ok, 0, wxRIGHT, FromDIP(24));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         m_upload_status_code = StatusCode::UPLOAD_PROGRESS;
 
         if (m_star_count == 0) {
@@ -7912,7 +7912,7 @@ wxBoxSizer *ScoreDialog::get_button_sizer()
     m_button_cancel->SetCornerRadius(FromDIP(12));
     bSizer_button->Add(m_button_cancel, 0, wxRIGHT, FromDIP(24));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_CANCEL); });
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_CANCEL); });
 
     return bSizer_button;
 }

@@ -633,7 +633,7 @@ AuFolderPanel::AuFolderPanel(wxWindow *parent, AuxiliaryFolderType type, wxWindo
     this->SetSizer(sizer_main);
     this->Layout();
 
-    m_big_button_add->Bind(wxEVT_LEFT_DOWN, [this](auto& e)
+    m_big_button_add->Bind(wxEVT_BUTTON, [this](auto& e)
         {
             auto evt = wxCommandEvent(EVT_AUXILIARY_IMPORT);
             evt.SetString(s_default_folders[m_type]);

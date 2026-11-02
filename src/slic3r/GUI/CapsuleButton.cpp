@@ -1,4 +1,5 @@
 #include "GUI_App.hpp"
+#include "GUI_Utils.hpp"
 #include "CapsuleButton.hpp"
 #include <wx/dcbuffer.h>
 #include "wx/graphics.h"
@@ -28,7 +29,8 @@ CapsuleButton::CapsuleButton(wxWindow *parent, wxWindowID id, const wxString &la
     tag_on_bmp = create_scaled_bitmap("capsule_tag_on", nullptr, FromDIP(16));
     tag_off_bmp = create_scaled_bitmap("capsule_tag_off", nullptr, FromDIP(16));
 
-    m_btn = new wxBitmapButton(this, wxID_ANY, selected?tag_on_bmp:tag_off_bmp, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+    // not a button, so the capsule itself takes the keyboard focus
+    m_btn = new wxStaticBitmap(this, wxID_ANY, selected?tag_on_bmp:tag_off_bmp, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
     m_btn->SetBackgroundColour(*wxWHITE);
 
     m_label = new Label(this, label);
@@ -43,11 +45,13 @@ CapsuleButton::CapsuleButton(wxWindow *parent, wxWindowID id, const wxString &la
     Layout();
     Fit();
 
-    auto forward_click_to_parent = [this](auto &event) {
+    auto click = [this]() {
         wxCommandEvent click_event(wxEVT_BUTTON, GetId());
         click_event.SetEventObject(this);
         this->ProcessEvent(click_event);
     };
+    auto forward_click_to_parent = [click](auto &event) { click(); };
+    bind_keyboard_click(this, click);
 
     m_btn->Bind(wxEVT_LEFT_DOWN, forward_click_to_parent);
     m_label->Bind(wxEVT_LEFT_DOWN, forward_click_to_parent);
@@ -74,8 +78,10 @@ void CapsuleButton::OnPaint(wxPaintEvent &event)
         bg_color = StateColor::darkModeColorFor(bg_color);
         border_color = StateColor::darkModeColorFor(border_color);
         gc->SetBrush(wxBrush(bg_color));
-        gc->SetPen(wxPen(border_color, 1));
-        gc->DrawRoundedRectangle(1, 1, rect.width - 2, rect.height - 2, 5);
+        int width = HasFocus() ? keyboard_focus_ring_width(this) : 1;
+        if (HasFocus()) border_color = StateColor::darkModeColorFor(BorderSelectColor);
+        gc->SetPen(wxPen(border_color, width));
+        gc->DrawRoundedRectangle(width, width, rect.width - width * 2, rect.height - width * 2, 5);
         delete gc;
     }
 }

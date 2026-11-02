@@ -386,7 +386,7 @@ UpdatePluginDialog::UpdatePluginDialog(wxWindow* parent /*= nullptr*/)
     m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetCornerRadius(FromDIP(12));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         EndModal(wxID_OK);
         });
 
@@ -398,7 +398,7 @@ UpdatePluginDialog::UpdatePluginDialog(wxWindow* parent /*= nullptr*/)
     m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_cancel->SetCornerRadius(FromDIP(12));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         EndModal(wxID_NO);
         });
 
@@ -557,7 +557,7 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     m_button_download->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_download->SetCornerRadius(FromDIP(12));
 
-    m_button_download->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    m_button_download->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         EndModal(wxID_YES);
     });
 
@@ -569,7 +569,7 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     m_button_skip_version->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_skip_version->SetCornerRadius(FromDIP(12));
 
-    m_button_skip_version->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    m_button_skip_version->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         wxGetApp().set_skip_version(true);
         EndModal(wxID_NO);
     });
@@ -583,7 +583,7 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_cancel->SetCornerRadius(FromDIP(12));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         EndModal(wxID_NO);
     });
 
@@ -1312,7 +1312,7 @@ void PrintErrorDialog::init_button(PrintErrorButton style,wxString buton_text)
     print_error_button->SetCornerRadius(FromDIP(5));
     print_error_button->Hide();
     m_button_list[style] = print_error_button;
-    m_button_list[style]->Bind(wxEVT_LEFT_DOWN, [this, style](wxMouseEvent& e)
+    m_button_list[style]->Bind(wxEVT_BUTTON, [this, style](wxCommandEvent& e)
     {
         wxCommandEvent evt(EVT_ERROR_DIALOG_BTN_CLICKED);
         evt.SetInt(style);
@@ -1419,7 +1419,7 @@ ConfirmBeforeSendDialog::ConfirmBeforeSendDialog(wxWindow* parent, wxWindowID id
     m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetCornerRadius(FromDIP(12));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         wxCommandEvent evt(EVT_SECONDARY_CHECK_CONFIRM, GetId());
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);
@@ -1434,7 +1434,7 @@ ConfirmBeforeSendDialog::ConfirmBeforeSendDialog(wxWindow* parent, wxWindowID id
     m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_cancel->SetCornerRadius(FromDIP(12));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         wxCommandEvent evt(EVT_SECONDARY_CHECK_CANCEL);
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);
@@ -1454,7 +1454,7 @@ ConfirmBeforeSendDialog::ConfirmBeforeSendDialog(wxWindow* parent, wxWindowID id
     m_button_update_nozzle->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_update_nozzle->SetCornerRadius(FromDIP(12));
 
-    m_button_update_nozzle->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_update_nozzle->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         wxCommandEvent evt(EVT_UPDATE_NOZZLE);
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);
@@ -1896,7 +1896,7 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     m_button_ok->SetSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetCornerRadius(FromDIP(12));
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, &InputIpAddressDialog::on_ok, this);
+    m_button_ok->Bind(wxEVT_BUTTON, &InputIpAddressDialog::on_ok, this);
     m_button_ok->Enable(false);
     m_button_ok->SetBackgroundColor(wxColour(0x90, 0x90, 0x90));
     m_button_ok->SetBorderColor(wxColour(0x90, 0x90, 0x90));
@@ -2139,7 +2139,7 @@ bool InputIpAddressDialog::isIp(std::string ipstr)
     return true;
 }
 
-void InputIpAddressDialog::on_ok(wxMouseEvent& evt)
+void InputIpAddressDialog::on_ok(wxCommandEvent& evt)
 {
     if (!m_need_input_sn) {
         on_send_retry();
@@ -2509,7 +2509,7 @@ void InputIpAddressDialog::on_dpi_changed(const wxRect& suggested_rect)
      m_button_retry->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
      m_button_retry->SetCornerRadius(FromDIP(12));
 
-     m_button_retry->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+     m_button_retry->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
          EndModal(wxYES);
      });
 
@@ -2521,7 +2521,7 @@ void InputIpAddressDialog::on_dpi_changed(const wxRect& suggested_rect)
      m_button_input->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
      m_button_input->SetCornerRadius(FromDIP(12));
 
-     m_button_input->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+     m_button_input->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
          EndModal(wxAPPLY);
      });
 
@@ -2671,7 +2671,7 @@ ExpandCenterDialog::ExpandCenterDialog(wxWindow* parent /*= nullptr*/) :
     m_button_activate->SetMinSize(wxSize(FromDIP(300), FromDIP(36)));
     m_button_activate->SetCornerRadius(FromDIP(4));
     m_button_activate->SetToolTip(tooltip_text);
-    m_button_activate->Bind(wxEVT_LEFT_DOWN, &ExpandCenterDialog::on_open_expand, this);
+    m_button_activate->Bind(wxEVT_BUTTON, &ExpandCenterDialog::on_open_expand, this);
     button_sizer->Add(0, 0, 1, wxEXPAND, 0);
     button_sizer->Add(m_button_activate, 0, wxALIGN_CENTER, 0);
     button_sizer->Add(0, 0, 1, wxEXPAND, 0);
@@ -2695,7 +2695,7 @@ ExpandCenterDialog::ExpandCenterDialog(wxWindow* parent /*= nullptr*/) :
     m_button_uninstall->SetSize(wxSize(FromDIP(120), FromDIP(28)));
     m_button_uninstall->SetMinSize(wxSize(FromDIP(120), FromDIP(28)));
     m_button_uninstall->SetCornerRadius(FromDIP(4));
-    m_button_uninstall->Bind(wxEVT_LEFT_DOWN, &ExpandCenterDialog::on_uninstall, this);
+    m_button_uninstall->Bind(wxEVT_BUTTON, &ExpandCenterDialog::on_uninstall, this);
     uninstall_sizer->Add(0, 0, 1, wxEXPAND, 0);
     uninstall_sizer->Add(m_button_uninstall, 0, wxALIGN_CENTER, 0);
     uninstall_sizer->Add(0, 0, 1, wxEXPAND, 0);
@@ -2788,14 +2788,14 @@ void ExpandCenterDialog::on_dpi_changed(const wxRect& suggested_rect)
 
 }
 
-void ExpandCenterDialog::on_open_expand(const wxMouseEvent& evt)
+void ExpandCenterDialog::on_open_expand(wxCommandEvent& evt)
 {
     EndModal(wxID_CLOSE);
     HelioStatementDialog dlg;
     auto res = dlg.ShowModal();
 }
 
-void ExpandCenterDialog::on_uninstall(const wxMouseEvent& evt)
+void ExpandCenterDialog::on_uninstall(wxCommandEvent& evt)
 {
     // Confirm uninstall
     MessageDialog confirm_dlg(this, 

@@ -84,7 +84,7 @@ BetaVersionDialog::BetaVersionDialog(wxWindow *parent)
         std::pair<wxColour, int>(*wxWHITE,                StateColor::Normal));
 
     // "Try Now" — brand color
-    m_button_try_now = new Button(this, _L("Try Now"));
+    m_button_try_now = new Button(this, _L("Try Now"), "", 0, 0, wxID_YES);
     m_button_try_now->SetBackgroundColor(btn_bg_green);
     m_button_try_now->SetBorderColor(*wxWHITE);
     m_button_try_now->SetTextColor(wxColour("#FFFFFE"));
@@ -92,19 +92,19 @@ BetaVersionDialog::BetaVersionDialog(wxWindow *parent)
     m_button_try_now->SetSize(wxSize(FromDIP(58), FromDIP(BUTTON_H)));
     m_button_try_now->SetMinSize(wxSize(FromDIP(58), FromDIP(BUTTON_H)));
     m_button_try_now->SetCornerRadius(FromDIP(BUTTON_RADIUS));
-    m_button_try_now->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &) {
+    m_button_try_now->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
         EndModal(wxID_YES);
     });
 
     // "Skip"
-    m_button_skip = new Button(this, _L("Skip"));
+    m_button_skip = new Button(this, _L("Skip"), "", 0, 0, wxID_NO);
     m_button_skip->SetBackgroundColor(btn_bg_white);
     m_button_skip->SetBorderColor(wxColour(38, 46, 48));
     m_button_skip->SetFont(Label::Body_12);
     m_button_skip->SetSize(wxSize(FromDIP(58), FromDIP(BUTTON_H)));
     m_button_skip->SetMinSize(wxSize(FromDIP(58), FromDIP(BUTTON_H)));
     m_button_skip->SetCornerRadius(FromDIP(BUTTON_RADIUS));
-    m_button_skip->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &) {
+    m_button_skip->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
         EndModal(wxID_NO);
     });
 
@@ -116,7 +116,7 @@ BetaVersionDialog::BetaVersionDialog(wxWindow *parent)
     m_button_dont_show->SetSize(wxSize(-1, FromDIP(BUTTON_H)));
     m_button_dont_show->SetMinSize(wxSize(FromDIP(58), FromDIP(BUTTON_H)));
     m_button_dont_show->SetCornerRadius(FromDIP(BUTTON_RADIUS));
-    m_button_dont_show->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &) {
+    m_button_dont_show->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
         EndModal(wxID_CANCEL);
     });
 

@@ -1343,7 +1343,7 @@ wxPanel* SendMultiMachinePage::create_page()
     m_refresh_button->Bind(wxEVT_LEAVE_WINDOW, [&](wxMouseEvent& evt) {
         SetCursor(wxCURSOR_ARROW);
     });
-    m_refresh_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& evt) {
+    m_refresh_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
         this->refresh_user_device();
         evt.Skip();
     });

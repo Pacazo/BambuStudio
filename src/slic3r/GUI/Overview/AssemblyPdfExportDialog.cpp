@@ -79,7 +79,7 @@ AssemblyPdfExportDialog::AssemblyPdfExportDialog(wxWindow *parent, const Assembl
     m_ok_btn->SetTextColor(ok_btn_text);
     m_ok_btn->SetFont(Label::Body_12);
     // Belt-and-braces: even though Enable(false) makes wxWidgets stop
-    m_ok_btn->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &evt) {
+    m_ok_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &evt) {
         if (m_ok_btn && !m_ok_btn->IsEnabled())
             return; // swallow the click while disabled
         if (!has_any_input())
@@ -105,7 +105,7 @@ AssemblyPdfExportDialog::AssemblyPdfExportDialog(wxWindow *parent, const Assembl
     cancel_btn->SetBorderColor(cancel_btn_bd);
     cancel_btn->SetTextColor(cancel_btn_text);
     cancel_btn->SetFont(Label::Body_12);
-    cancel_btn->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &) { EndModal(wxID_CANCEL); });
+    cancel_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EndModal(wxID_CANCEL); });
 
     button_sizer->Add(m_ok_btn, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, FromDIP(8));
     button_sizer->Add(cancel_btn, 0, wxALIGN_CENTER_VERTICAL);
@@ -159,7 +159,7 @@ wxTextCtrl *AssemblyPdfExportDialog::create_path_row(wxWindow *parent, wxBoxSize
     browse_btn->SetMinSize(wxSize(FromDIP(48), FromDIP(20)));
     browse_btn->SetCornerRadius(FromDIP(4));
 
-    browse_btn->Bind(wxEVT_LEFT_DOWN, [this, text_ctrl](wxMouseEvent &) { browse_image(text_ctrl); });
+    browse_btn->Bind(wxEVT_BUTTON, [this, text_ctrl](wxCommandEvent &) { browse_image(text_ctrl); });
 
     if (!tooltip.IsEmpty()) {
         label_ctrl->SetToolTip(tooltip);

@@ -344,8 +344,8 @@ Button* MsgDialog::add_button(wxWindowID btn_id, bool set_focus /*= false*/, con
         btn->SetTextColor(btn_text_white);
     }
 
-    if (set_focus)
-        btn->SetFocus();
+    if (set_focus && m_affirmative_btn == nullptr)
+        m_affirmative_btn = btn;
     btn_sizer->Add(btn, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BTN_SPACING);
     btn->Bind(wxEVT_BUTTON, [this, btn_id](wxCommandEvent&) { EndModal(btn_id); });
 
@@ -380,6 +380,17 @@ void MsgDialog::apply_style(long style)
     if (style & wxNO)       add_button(wxID_NO, false,_L("No"));
     if (style & wxCANCEL)   add_button(wxID_CANCEL, false, _L("Cancel"));
 
+    // let Enter and Esc find the buttons: they are not wxButton, so wxDialog cannot
+    if (style & wxOK)
+        SetAffirmativeId(wxID_OK);
+    else if (style & wxYES)
+        SetAffirmativeId(wxID_YES);
+    // leave the escape id alone when there is nothing to cancel with, so Esc still closes
+    if (style & wxCANCEL)
+        SetEscapeId(wxID_CANCEL);
+    else if (style & wxNO)
+        SetEscapeId(wxID_NO);
+
     logo->SetBitmap( create_scaled_bitmap(style & wxAPPLY        ? "completed" :
                                           style & wxICON_WARNING        ? "obj_warning" :
                                           style & wxICON_INFORMATION    ? "info"        :
@@ -392,6 +403,9 @@ void MsgDialog::finalize()
     Fit();
     CenterOnParent();
     wxGetApp().UpdateDlgDarkUI(this);
+    // focus the accepting button, unless something editable already holds the focus
+    if (m_affirmative_btn && FindFocus() == nullptr)
+        m_affirmative_btn->SetFocus();
 }
 
 
@@ -739,7 +753,7 @@ DownloadDialog::DownloadDialog(wxWindow *parent, const wxString &msg, const wxSt
     : MsgDialog(parent, title, msg, style), msg(msg)
 {
     add_button(wxID_YES, true, _L("Download"));
-    add_button(wxID_CANCEL, true, _L("Skip"));
+    add_button(wxID_CANCEL, false, _L("Skip"));
 
     finalize();
 }
@@ -897,7 +911,7 @@ wxBoxSizer *Newer3mfVersionDialog::get_btn_sizer()
         m_update_btn->SetCornerRadius(FromDIP(12));
         horizontal_sizer->Add(m_update_btn, 0, wxRIGHT, FromDIP(10));
 
-        m_update_btn->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+        m_update_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             EndModal(wxID_OK);
             if (wxGetApp().app_config->has("app", "cloud_software_url")) {
                 std::string download_url = wxGetApp().app_config->get("app", "cloud_software_url");
@@ -924,7 +938,7 @@ wxBoxSizer *Newer3mfVersionDialog::get_btn_sizer()
     m_later_btn->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_later_btn->SetCornerRadius(FromDIP(12));
     horizontal_sizer->Add(m_later_btn, 0, wxRIGHT, FromDIP(10));
-    m_later_btn->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    m_later_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         EndModal(wxID_OK);
     });
     return horizontal_sizer;
@@ -1009,7 +1023,7 @@ NetworkErrorDialog::NetworkErrorDialog(wxWindow* parent)
     m_button_confirm->SetMinSize(wxSize(FromDIP(68), FromDIP(23)));
     m_button_confirm->SetMinSize(wxSize(FromDIP(68), FromDIP(23)));
     m_button_confirm->SetCornerRadius(12);
-    m_button_confirm->Bind(wxEVT_LEFT_DOWN, [this](auto& e) {EndModal(wxCLOSE);});
+    m_button_confirm->Bind(wxEVT_BUTTON, [this](auto& e) {EndModal(wxCLOSE);});
 
     sizer_button->Add(checkbox, 0, wxALL, 5);
     sizer_button->Add(checkbox_title, 0, wxALL, 5);

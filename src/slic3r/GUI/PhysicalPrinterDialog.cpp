@@ -109,7 +109,7 @@ PhysicalPrinterDialog::PhysicalPrinterDialog(wxWindow* parent) :
     m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_ok->SetCornerRadius(FromDIP(12));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, &PhysicalPrinterDialog::OnOK, this);
+    m_button_ok->Bind(wxEVT_BUTTON, &PhysicalPrinterDialog::OnOK, this);
 
     m_button_cancel = new Button(this, _L("Cancel"));
     m_button_cancel->SetBackgroundColor(btn_bg_white);
@@ -119,7 +119,7 @@ PhysicalPrinterDialog::PhysicalPrinterDialog(wxWindow* parent) :
     m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
     m_button_cancel->SetCornerRadius(FromDIP(12));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { this->EndModal(wxID_NO);});
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](auto &e) { this->EndModal(wxID_NO);});
 
     button_sizer->AddStretchSpacer();
     button_sizer->Add(m_button_ok, 0, wxALL, FromDIP(5));
@@ -557,7 +557,7 @@ void PhysicalPrinterDialog::check_host_key_valid()
     return;
 }
 
-void PhysicalPrinterDialog::OnOK(wxMouseEvent& event)
+void PhysicalPrinterDialog::OnOK(wxCommandEvent& event)
 {
     wxGetApp().get_tab(Preset::TYPE_PRINTER)->save_preset("", false, false, true, m_preset_name );
     this->EndModal(wxID_YES);

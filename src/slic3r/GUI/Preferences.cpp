@@ -1878,7 +1878,7 @@ wxWindow *PreferencesDialog::create_developer_tab()
     debug_button->SetBackgroundColor(btn_bg_white);
     debug_button->SetBorderColor(btn_bd_white);
     debug_button->SetFont(Label::Body_13);
-    debug_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
+    debug_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         // success message box
         MessageDialog dialog(this, _L("save debug settings"), _L("DEBUG settings have saved successfully!"), wxNO_DEFAULT | wxYES_NO | wxICON_INFORMATION);
         dialog.SetSize(400,-1);

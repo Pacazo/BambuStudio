@@ -110,7 +110,7 @@ namespace {
      m_button_cancel->SetSize(wxSize(FromDIP(100), FromDIP(36)));
      m_button_cancel->SetMinSize(wxSize(FromDIP(100), FromDIP(36)));
      m_button_cancel->SetCornerRadius(FromDIP(4));
-     m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_NO); });
+     m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_NO); });
 
      // Button sizer for PAT page (centered)
      wxBoxSizer* pat_button_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -167,7 +167,7 @@ namespace {
      event.Skip();
  }
 
-void HelioStatementDialog::on_confirm(wxMouseEvent& e)
+void HelioStatementDialog::on_confirm(wxCommandEvent& e)
 {
     // User agreed to terms - enable Helio and show PAT page
     wxGetApp().app_config->set_bool("helio_enable", true);
@@ -570,7 +570,7 @@ void HelioStatementDialog::create_legal_page()
     m_button_confirm->SetSize(wxSize(FromDIP(160), FromDIP(36)));
     m_button_confirm->SetMinSize(wxSize(FromDIP(160), FromDIP(36)));
     m_button_confirm->SetCornerRadius(FromDIP(4));
-    m_button_confirm->Bind(wxEVT_LEFT_DOWN, &HelioStatementDialog::on_confirm, this);
+    m_button_confirm->Bind(wxEVT_BUTTON, &HelioStatementDialog::on_confirm, this);
     m_button_confirm->Disable(); // Disabled until checkbox is checked
     
     bottom_row_sizer->Add(m_agree_checkbox, 0, wxALIGN_CENTER_VERTICAL, 0);
@@ -636,7 +636,7 @@ void HelioStatementDialog::create_pat_page()
     run_optimization_button->SetMinSize(wxSize(FromDIP(220), FromDIP(36)));
     run_optimization_button->SetCornerRadius(FromDIP(4));
     run_optimization_button->SetToolTip(_L("You're nearly there! Now that Helio is activated, your first optimization run for faster, more reliable printing takes only minutes! (Now referred to as 'Enhance' or 'Enhancement')"));
-    run_optimization_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    run_optimization_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         // Set tutorial flag for first-time users
         wxGetApp().app_config->set("helio_first_time_tutorial", "active");
         wxGetApp().app_config->save();
@@ -692,7 +692,7 @@ void HelioStatementDialog::create_pat_page()
         "• Integrate Helio with other slicers or tools\n"
         "• Use the Helio API directly\n"
         "• Provide to support when troubleshooting"));
-    copy_pat_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    copy_pat_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         std::string pat = Slic3r::HelioQuery::get_helio_pat();
         if (!pat.empty()) {
             if (wxTheClipboard->Open()) {
@@ -728,7 +728,7 @@ void HelioStatementDialog::create_pat_page()
     history_button->SetMinSize(wxSize(FromDIP(120), FromDIP(32)));
     history_button->SetCornerRadius(FromDIP(4));
     history_button->SetToolTip(_L("View and download recent optimizations and simulations"));
-    history_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    history_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         // Use CallAfter to defer modal dialog creation until after mouse event processing
         // This prevents crashes on Windows where opening a modal during mouse-down corrupts mouse capture state
         // Note: Do NOT call e.Skip() here - it causes multiple triggers on Mac
@@ -1872,7 +1872,7 @@ void HelioInputDialog::update_mode_card_styling(int selected_action)
     buy_now_button->SetMinSize(wxSize(-1, FromDIP(28)));
     buy_now_button->SetCornerRadius(FromDIP(12));
     buy_now_button->SetToolTip(_L("Loading..."));
-    buy_now_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    buy_now_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         std::string helio_api_key = Slic3r::HelioQuery::get_helio_pat();
         if (!helio_api_key.empty()) {
             wxString link_url;
@@ -2150,7 +2150,7 @@ void HelioInputDialog::update_mode_card_styling(int selected_action)
     m_button_confirm->SetMinSize(wxSize(-1, FromDIP(56)));
     m_button_confirm->SetCornerRadius(FromDIP(16));
     m_button_confirm->SetToolTip(_L("Enhancement will only take a few minutes to complete, depending on the size of your object. (A lot of compute is happening in the background) (Formerly referred to as 'Optimize' or 'Optimization')"));
-    m_button_confirm->Bind(wxEVT_LEFT_DOWN, &HelioInputDialog::on_confirm, this);
+    m_button_confirm->Bind(wxEVT_BUTTON, &HelioInputDialog::on_confirm, this);
     m_button_confirm->Bind(wxEVT_ENTER_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_HAND); });
     m_button_confirm->Bind(wxEVT_LEAVE_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_ARROW); });
 
@@ -3016,7 +3016,7 @@ Slic3r::HelioQuery::OptimizationInput HelioInputDialog::get_optimization_input(b
 }
 
 
-void HelioInputDialog::on_confirm(wxMouseEvent& e)
+void HelioInputDialog::on_confirm(wxCommandEvent& e)
 {
     bool ok = false;
     if (current_action == 0) // Simulation
@@ -3102,7 +3102,7 @@ HelioPatNotEnoughDialog::HelioPatNotEnoughDialog(wxWindow* parent /*= nullptr*/)
     sizer_button->AddStretchSpacer();
     sizer_button->Add(m_button_ok, 0, wxALL, FromDIP(5));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         EndModal(wxID_OK);
         });
 
@@ -3356,7 +3356,7 @@ HelioRatingDialog::HelioRatingDialog(wxWindow *parent, int original, int optimiz
     m_button_print_plate->SetMinSize(wxSize(FromDIP(100), FromDIP(24)));
     m_button_print_plate->SetCornerRadius(FromDIP(12));
     m_button_print_plate->SetToolTip(_L("Print the enhanced part immediately"));
-    m_button_print_plate->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_print_plate->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         EndModal(wxID_OK);
         wxGetApp().plater()->CallAfter([]() {
             wxPostEvent(wxGetApp().plater(), SimpleEvent(EVT_GLTOOLBAR_PRINT_PLATE));
@@ -3380,7 +3380,7 @@ HelioRatingDialog::HelioRatingDialog(wxWindow *parent, int original, int optimiz
     m_button_view_details->SetSize(wxSize(FromDIP(100), FromDIP(24)));
     m_button_view_details->SetMinSize(wxSize(FromDIP(100), FromDIP(24)));
     m_button_view_details->SetCornerRadius(FromDIP(12));
-    m_button_view_details->Bind(wxEVT_LEFT_DOWN, [this](auto& e) {
+    m_button_view_details->Bind(wxEVT_BUTTON, [this](auto& e) {
         EndModal(wxID_CLOSE);
         // Switch to the Preview panel to show details
         wxGetApp().plater()->CallAfter([]() {
@@ -3740,7 +3740,7 @@ HelioSimulationResultsDialog::HelioSimulationResultsDialog(wxWindow *parent,
     m_button_view_details->SetSize(wxSize(FromDIP(100), FromDIP(28)));
     m_button_view_details->SetMinSize(wxSize(FromDIP(100), FromDIP(28)));
     m_button_view_details->SetCornerRadius(FromDIP(6));
-    m_button_view_details->Bind(wxEVT_LEFT_DOWN, &HelioSimulationResultsDialog::on_view_details, this);
+    m_button_view_details->Bind(wxEVT_BUTTON, &HelioSimulationResultsDialog::on_view_details, this);
     m_button_view_details->Bind(wxEVT_ENTER_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_HAND); });
     m_button_view_details->Bind(wxEVT_LEAVE_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_ARROW); });
 
@@ -3797,7 +3797,7 @@ HelioSimulationResultsDialog::HelioSimulationResultsDialog(wxWindow *parent,
     m_button_enhance->SetMinSize(wxSize(FromDIP(200), FromDIP(40)));
     m_button_enhance->SetCornerRadius(FromDIP(12));
     m_button_enhance->SetToolTip(_L("Applies Helio's optimized speed/flow/fan strategy."));
-    m_button_enhance->Bind(wxEVT_LEFT_DOWN, &HelioSimulationResultsDialog::on_enhance_speed_quality, this);
+    m_button_enhance->Bind(wxEVT_BUTTON, &HelioSimulationResultsDialog::on_enhance_speed_quality, this);
     m_button_enhance->Bind(wxEVT_ENTER_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_HAND); });
     m_button_enhance->Bind(wxEVT_LEAVE_WINDOW, [this](auto& e) { SetCursor(wxCURSOR_ARROW); });
     wxStaticBitmap* save_icon = new wxStaticBitmap(this, wxID_ANY, create_scaled_bitmap("save", this, 24), wxDefaultPosition,
@@ -4214,7 +4214,7 @@ void HelioSimulationResultsDialog::create_fix_suggestions_section(wxBoxSizer* pa
     m_fix_suggestions_content->SetSizer(content_sizer);
 }
 
-void HelioSimulationResultsDialog::on_enhance_speed_quality(wxMouseEvent& event)
+void HelioSimulationResultsDialog::on_enhance_speed_quality(wxCommandEvent& event)
 {
     // Close this dialog
     EndModal(wxID_OK);
@@ -4233,7 +4233,7 @@ void HelioSimulationResultsDialog::on_enhance_speed_quality(wxMouseEvent& event)
     });
 }
 
-void HelioSimulationResultsDialog::on_view_details(wxMouseEvent& event)
+void HelioSimulationResultsDialog::on_view_details(wxCommandEvent& event)
 {
     // Close the dialog
     EndModal(wxID_CANCEL);

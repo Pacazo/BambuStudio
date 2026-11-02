@@ -1,6 +1,7 @@
 #include "FilamentMapPanel.hpp"
 #include "Widgets/MultiNozzleSync.hpp"
 #include "GUI_App.hpp"
+#include "GUI_Utils.hpp"
 #include "Plater.hpp"
 #include "DeviceCore/DevConfigUtil.h"
 #include "DeviceCore/DevNozzleSystem.h"
@@ -1508,6 +1509,7 @@ public:
     void Select(bool selected);
     bool Enable(bool enable) override;
     bool IsEnabled() const { return m_enabled; }
+    bool AcceptsFocusFromKeyboard() const override { return m_enabled && wxPanel::AcceptsFocusFromKeyboard(); }
 
 protected:
     void OnPaint(wxPaintEvent &event);
@@ -1522,7 +1524,7 @@ private:
     wxBitmap icon_enabled;
     wxBitmap icon_disabled;
 
-    wxBitmapButton *m_btn;
+    wxStaticBitmap *m_btn;
     wxStaticText   *m_label;
     Label          *m_disable_tip;
     Label          *m_detail;
@@ -1543,7 +1545,8 @@ GUI::FilamentMapBtnPanel::FilamentMapBtnPanel(wxWindow *parent, const wxString &
     icon_enabled = create_scaled_bitmap(icon, nullptr, 20);
     icon_disabled = create_scaled_bitmap(icon + "_disabled", nullptr, 20);
 
-    m_btn    = new wxBitmapButton(this, wxID_ANY, icon_enabled, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+    // not a button, so the panel itself takes the keyboard focus
+    m_btn    = new wxStaticBitmap(this, wxID_ANY, icon_enabled, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
     m_btn->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
     m_label = new wxStaticText(this, wxID_ANY, label);
@@ -1581,11 +1584,13 @@ GUI::FilamentMapBtnPanel::FilamentMapBtnPanel(wxWindow *parent, const wxString &
 
     GUI::wxGetApp().UpdateDarkUIWin(this);
 
-    auto forward_click_to_parent = [this](wxMouseEvent &event) {
+    auto click = [this]() {
         wxCommandEvent click_event(wxEVT_LEFT_DOWN, GetId());
         click_event.SetEventObject(this);
         this->ProcessEvent(click_event);
     };
+    auto forward_click_to_parent = [click](wxMouseEvent &event) { click(); };
+    bind_keyboard_click(this, click);
 
     m_btn->Bind(wxEVT_LEFT_DOWN, forward_click_to_parent);
     m_label->Bind(wxEVT_LEFT_DOWN, forward_click_to_parent);
@@ -1609,13 +1614,14 @@ void FilamentMapBtnPanel::OnPaint(wxPaintEvent &event)
         gc->DrawRoundedRectangle(0, 0, rect.width, rect.height, 0);
         wxColour bg_color = m_selected ? BgSelectColor : BgNormalColor;
 
-        wxColour border_color = m_hover || m_selected ? BorderSelectedColor : BorderNormalColor;
+        wxColour border_color = m_hover || m_selected || HasFocus() ? BorderSelectedColor : BorderNormalColor;
+        int      width        = HasFocus() ? keyboard_focus_ring_width(this) : 1;
 
         bg_color     = StateColor::darkModeColorFor(bg_color);
         border_color = StateColor::darkModeColorFor(border_color);
         gc->SetBrush(wxBrush(bg_color));
-        gc->SetPen(wxPen(border_color, 1));
-        gc->DrawRoundedRectangle(1, 1, rect.width - 2, rect.height - 2, 8);
+        gc->SetPen(wxPen(border_color, width));
+        gc->DrawRoundedRectangle(width, width, rect.width - width * 2, rect.height - width * 2, 8);
         delete gc;
     }
 }

@@ -81,7 +81,8 @@ void CheckBox::update()
 #endif
     SetBitmapCurrent((m_half_checked ? m_half_focused : GetValue() ? m_on_focused : m_off_focused).bmp());
 #ifdef __WXGTK__
-    if (m_has_focus) {
+    // a disabled checkbox keeps no focus ring, it cannot be reached by Tab
+    if (m_has_focus && IsEnabled()) {
         const wxBitmap &focused = (m_half_checked ? m_half_kbfocus : GetValue() ? m_on_kbfocus : m_off_kbfocus).bmp();
         SetBitmapLabel(focused);
         SetBitmapCurrent(focused);
@@ -99,6 +100,18 @@ CheckBox::State CheckBox::GetNormalState() const { return State_Normal; }
 
 #endif
 
+
+#ifdef __WXGTK__
+
+bool CheckBox::Enable(bool enable)
+{
+    bool result = wxBitmapToggleButton::Enable(enable);
+    if (result)
+        update();
+    return result;
+}
+
+#endif
 
 #ifdef __WXOSX__
 

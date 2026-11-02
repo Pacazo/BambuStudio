@@ -94,7 +94,7 @@ PrivacyUpdateDialog::PrivacyUpdateDialog(wxWindow* parent, wxWindowID id, const 
     m_button_ok->SetMinSize(wxSize(-1, FromDIP(36)));
     m_button_ok->SetCornerRadius(FromDIP(3));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         wxCommandEvent evt(EVT_PRIVACY_UPDATE_CONFIRM, GetId());
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);
@@ -109,7 +109,7 @@ PrivacyUpdateDialog::PrivacyUpdateDialog(wxWindow* parent, wxWindowID id, const 
     m_button_cancel->SetMinSize(wxSize(-1, FromDIP(36)));
     m_button_cancel->SetCornerRadius(FromDIP(3));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) {
         wxCommandEvent evt(EVT_PRIVACY_UPDATE_CANCEL);
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);

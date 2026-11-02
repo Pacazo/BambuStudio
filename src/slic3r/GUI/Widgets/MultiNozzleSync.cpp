@@ -159,7 +159,7 @@ ManualNozzleCountDialog::ManualNozzleCountDialog(wxWindow *parent, NozzleVolumeT
     m_confirm_btn->SetMinSize(wxSize(FromDIP(68), FromDIP(23)));
     m_confirm_btn->SetMinSize(wxSize(FromDIP(68), FromDIP(23)));
     m_confirm_btn->SetCornerRadius(12);
-    m_confirm_btn->Bind(wxEVT_LEFT_DOWN, [this](auto &e) { EndModal(wxID_OK); });
+    m_confirm_btn->Bind(wxEVT_BUTTON, [this](auto &e) { EndModal(wxID_OK); });
 
     wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
     mainSizer->Add(content, 1, wxEXPAND);
@@ -790,8 +790,9 @@ Slic3r::GUI::MultiNozzleSyncDialog::MultiNozzleSyncDialog(wxWindow* parent,std::
 
     wxBoxSizer* button_sizer = new wxBoxSizer(wxHORIZONTAL);
 
-    m_cancel_btn = new Button(this, _L("Cancel"), "", 0, 0, wxID_OK);
-    m_confirm_btn = new Button(this, _L("Confirm"), "", 0, 0, wxID_CANCEL);
+    // no standard ids: they were swapped, so Esc confirmed, and both get their action bound later
+    m_cancel_btn = new Button(this, _L("Cancel"));
+    m_confirm_btn = new Button(this, _L("Confirm"));
 
     m_caution = new Label(this, _L("Caution: Printing with mixed nozzle diameters is experimental. Please verify your print settings (extrusion widths, layer height, etc.) are compatible with all selected nozzle sizes."));
     m_caution->SetForegroundColour("#909090");
@@ -1119,8 +1120,8 @@ void MultiNozzleSyncDialog::UpdateButton(std::weak_ptr<DevNozzleRack> rack, bool
         m_cancel_btn->SetLabel(_L("Ignore"));
         m_confirm_btn->SetLabel(_L("Refresh"));
 
-        m_cancel_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, ignore_opt](auto& e) {ignore_opt(); });
-        m_confirm_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
+        m_cancel_btn->Bind(wxEVT_BUTTON, [this, rack, ignore_opt](auto& e) {ignore_opt(); });
+        m_confirm_btn->Bind(wxEVT_BUTTON, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
     }
     else if (has_unknown) {
         m_cancel_btn->Show();
@@ -1129,8 +1130,8 @@ void MultiNozzleSyncDialog::UpdateButton(std::weak_ptr<DevNozzleRack> rack, bool
         m_cancel_btn->SetLabel(_L("Ignore"));
         m_confirm_btn->SetLabel(_L("Refresh"));
 
-        m_cancel_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, ignore_opt](auto& e) {ignore_opt(); });
-        m_confirm_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
+        m_cancel_btn->Bind(wxEVT_BUTTON, [this, rack, ignore_opt](auto& e) {ignore_opt(); });
+        m_confirm_btn->Bind(wxEVT_BUTTON, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
     }
     else if (has_unreliable) {
         m_cancel_btn->Show();
@@ -1139,15 +1140,15 @@ void MultiNozzleSyncDialog::UpdateButton(std::weak_ptr<DevNozzleRack> rack, bool
         m_cancel_btn->SetLabel(_L("Refresh"));
         m_confirm_btn->SetLabel(_L("Confirm"));
 
-        m_cancel_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
-        m_confirm_btn->Bind(wxEVT_LEFT_DOWN, [this, rack, trust_cmd](auto& e) {trust_cmd(); });
+        m_cancel_btn->Bind(wxEVT_BUTTON, [this, rack, refresh_cmd](auto& e) {refresh_cmd(); });
+        m_confirm_btn->Bind(wxEVT_BUTTON, [this, rack, trust_cmd](auto& e) {trust_cmd(); });
 
     }
     else {
         m_cancel_btn->Hide();
         m_confirm_btn->Show();
         m_confirm_btn->SetLabel(_L("OK"));
-        m_confirm_btn->Bind(wxEVT_LEFT_DOWN, [this](auto& e) {EndModal(wxID_OK); });
+        m_confirm_btn->Bind(wxEVT_BUTTON, [this](auto& e) {EndModal(wxID_OK); });
     }
 
 }

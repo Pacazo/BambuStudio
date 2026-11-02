@@ -18,6 +18,22 @@
 #include <wx/dcclient.h>
 #include <wx/font.h>
 #include <wx/fontutil.h>
+#include <wx/button.h>
+#include <wx/textctrl.h>
+#include <wx/combobox.h>
+#include <wx/choice.h>
+#include <wx/panel.h>
+#include <wx/anybutton.h>
+#include <wx/weakref.h>
+
+#include <typeinfo>
+#include <unordered_set>
+
+#include "I18N.hpp"
+#include "Widgets/Button.hpp"
+#include "Widgets/TextInput.hpp"
+#include "Widgets/SpinInput.hpp"
+#include "Widgets/TempInput.hpp"
 
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Log.hpp"
@@ -31,6 +47,244 @@ wxDEFINE_EVENT(EVT_HID_DEVICE_DETACHED, HIDDeviceDetachedEvent);
 wxDEFINE_EVENT(EVT_VOLUME_ATTACHED, VolumeAttachedEvent);
 wxDEFINE_EVENT(EVT_VOLUME_DETACHED, VolumeDetachedEvent);
 #endif // _WIN32
+
+bool focus_consumes_enter(wxWindow *focus)
+{
+    if (focus == nullptr)
+        return false;
+    // a button takes Enter itself, so the focused one is activated instead of the default
+    if (dynamic_cast<Button *>(focus) || dynamic_cast<wxButton *>(focus))
+        return true;
+    // text fields and the controls built on them (TextInput, SpinInput, TempInput, ComboBox)
+    if (dynamic_cast<TextInput *>(focus) || dynamic_cast<SpinInput *>(focus) || dynamic_cast<TempInput *>(focus))
+        return true;
+    if (auto text = dynamic_cast<wxTextCtrl *>(focus))
+        return text->IsMultiLine() || text->HasFlag(wxTE_PROCESS_ENTER);
+    if (dynamic_cast<wxComboBox *>(focus) || dynamic_cast<wxChoice *>(focus))
+        return true;
+    // the inner text control of the composite widgets above
+    for (wxWindow *parent = focus->GetParent(); parent; parent = parent->GetParent())
+        if (dynamic_cast<TextInput *>(parent) || dynamic_cast<SpinInput *>(parent) || dynamic_cast<TempInput *>(parent))
+            return true;
+    return false;
+}
+
+static bool click_button(wxWindow *btn)
+{
+    if (btn == nullptr || !btn->IsEnabled() || !btn->IsShownOnScreen())
+        return false;
+    wxCommandEvent event(wxEVT_BUTTON, btn->GetId());
+    event.SetEventObject(btn);
+    return btn->GetEventHandler()->ProcessEvent(event);
+}
+
+bool click_dialog_button(wxDialog *dialog, wxWindowID id)
+{
+    if (dialog == nullptr || id == wxID_NONE || id == wxID_ANY)
+        return false;
+    return click_button(dialog->FindWindow(id));
+}
+
+// the first visible, enabled custom button with one of these labels, for the many dialogs
+// whose buttons carry no standard id
+static Button *find_labelled_button(wxWindow *parent, const std::vector<wxString> &labels)
+{
+    for (wxWindow *child : parent->GetChildren()) {
+        if (child->IsTopLevel() || !child->IsShown())
+            continue;
+        if (auto btn = dynamic_cast<Button *>(child)) {
+            if (btn->IsEnabled() && std::find(labels.begin(), labels.end(), btn->GetLabel()) != labels.end())
+                return btn;
+        } else if (Button *found = find_labelled_button(child, labels))
+            return found;
+    }
+    return nullptr;
+}
+
+static bool usable_button(wxWindow *btn) { return btn && btn->IsEnabled() && btn->IsShownOnScreen(); }
+
+// the button Enter presses: the affirmative id, a standard accepting id, else a labelled one
+static wxWindow *find_accept_button(wxDialog *dialog)
+{
+    for (wxWindowID id : {dialog->GetAffirmativeId(), wxWindowID(wxID_OK), wxWindowID(wxID_YES), wxWindowID(wxID_APPLY)}) {
+        if (id == wxID_NONE || id == wxID_ANY)
+            continue;
+        if (wxWindow *btn = dialog->FindWindow(id); usable_button(btn))
+            return btn;
+    }
+    return find_labelled_button(dialog, {_L("OK"), _L("Ok"), _L("Confirm"), _L("Yes"), _L("Done")});
+}
+
+bool dialog_accept(wxDialog *dialog)
+{
+    return dialog != nullptr && click_button(find_accept_button(dialog));
+}
+
+bool dialog_escape(wxDialog *dialog)
+{
+    if (dialog == nullptr)
+        return false;
+    const wxWindowID escape_id = dialog->GetEscapeId();
+    if (escape_id == wxID_NONE)
+        return true; // the dialog refuses Esc
+    if (click_dialog_button(dialog, escape_id))
+        return true;
+    if (click_dialog_button(dialog, wxID_CANCEL))
+        return true;
+    return click_button(find_labelled_button(dialog, {_L("Cancel"), _L("Close")}));
+}
+
+bool handle_dialog_key(wxDialog *dialog, wxKeyEvent &event)
+{
+    if (dialog == nullptr || event.HasAnyModifiers())
+        return false;
+    const int code = event.GetKeyCode();
+    if (code == WXK_ESCAPE) {
+        if (!dialog_escape(dialog))
+            dialog->Close();
+        return true;
+    }
+    if (code == WXK_RETURN || code == WXK_NUMPAD_ENTER)
+        // let the focused control have Enter first, so it reaches the focused
+        // button and does not close the dialog from inside a text field
+        return !focus_consumes_enter(wxWindow::FindFocus()) && dialog_accept(dialog);
+    return false;
+}
+
+// painted panels that handle the keyboard themselves, so they stay focus stops
+static std::unordered_set<wxWindow *> s_keyboard_panels;
+
+void bind_keyboard_click(wxWindow *window, std::function<void()> activate)
+{
+    s_keyboard_panels.insert(window);
+    window->Bind(wxEVT_DESTROY, [window](wxWindowDestroyEvent &e) {
+        if (e.GetEventObject() == window)
+            s_keyboard_panels.erase(window);
+        e.Skip();
+    });
+    auto repaint = [window](wxFocusEvent &e) {
+        window->Refresh();
+        e.Skip();
+    };
+    window->Bind(wxEVT_SET_FOCUS, repaint);
+    window->Bind(wxEVT_KILL_FOCUS, repaint);
+    // the arrows are handled for every button alike in filter_keyboard_focus()
+    window->Bind(wxEVT_KEY_DOWN, [activate](wxKeyEvent &e) {
+        if (e.GetKeyCode() == WXK_SPACE)
+            activate();
+        else
+            e.Skip();
+    });
+}
+
+// buttons, check boxes, radios and painted button panels: the arrows move between them
+static bool is_button_like(wxWindow *window)
+{
+    return window && (dynamic_cast<Button *>(window) || dynamic_cast<wxAnyButton *>(window) || s_keyboard_panels.count(window));
+}
+
+// the arrows stay inside the row of buttons sharing a parent and stop at its ends,
+// they do not wrap around the whole dialog like Tab
+static void focus_sibling_button(wxWindow *window, bool forward)
+{
+    wxWindow *parent = window->GetParent();
+    if (parent == nullptr)
+        return;
+    std::vector<wxWindow *> group;
+    for (wxWindow *child : parent->GetChildren())
+        if (child == window || (is_button_like(child) && child->IsShown() && child->CanAcceptFocusFromKeyboard()))
+            group.push_back(child);
+    auto it = std::find(group.begin(), group.end(), window);
+    if (forward && it + 1 != group.end())
+        (*(it + 1))->SetFocusFromKbd();
+    else if (!forward && it != group.begin())
+        (*(it - 1))->SetFocusFromKbd();
+}
+
+int keyboard_focus_ring_width(const wxWindow *window) { return std::max(2, window->FromDIP(2)); }
+
+static bool has_keyboard_focusable_child(const wxWindow *window)
+{
+    for (const wxWindow *child : window->GetChildren())
+        if (!child->IsTopLevel() && child->IsShown() &&
+            (child->CanAcceptFocusFromKeyboard() || has_keyboard_focusable_child(child)))
+            return true;
+    return false;
+}
+
+static bool is_inert_focus_stop(wxWindow *window)
+{
+    if (window == nullptr || window->IsTopLevel() || s_keyboard_panels.count(window))
+        return false;
+    if (dynamic_cast<wxPanel *>(window) == nullptr && typeid(*window) != typeid(wxWindow))
+        return false;
+    return !has_keyboard_focusable_child(window);
+}
+
+// a newly shown dialog starts on its accepting button, unless a text field already has the focus
+static void focus_accept_button(wxDialog *dialog)
+{
+    wxWindow *focus = wxWindow::FindFocus();
+    if (focus && wxGetTopLevelParent(focus) == dialog && focus_consumes_enter(focus) &&
+        !dynamic_cast<Button *>(focus) && !dynamic_cast<wxButton *>(focus))
+        return;
+    if (wxWindow *btn = find_accept_button(dialog); btn && btn != focus)
+        btn->SetFocus();
+}
+
+bool filter_keyboard_focus(wxEvent &event)
+{
+    // direction of the last Tab, until the mouse takes over
+    static bool by_keyboard = true;
+    static bool forward     = true;
+    // hops in a row, so a dialog with nothing focusable cannot loop forever
+    static int hops = 0;
+
+    const wxEventType type = event.GetEventType();
+    if (type == wxEVT_NAVIGATION_KEY) {
+        by_keyboard = true;
+        forward     = static_cast<wxNavigationKeyEvent &>(event).GetDirection();
+    } else if (type == wxEVT_LEFT_DOWN || type == wxEVT_RIGHT_DOWN || type == wxEVT_MIDDLE_DOWN) {
+        by_keyboard = false;
+    } else if (type == wxEVT_SHOW) {
+        // a dialog opened by a click still places its first focus like the keyboard
+        wxWindow *window = dynamic_cast<wxWindow *>(event.GetEventObject());
+        if (window && window->IsTopLevel() && static_cast<wxShowEvent &>(event).IsShown()) {
+            by_keyboard = true;
+            hops        = 0;
+            // GTK picks the first focus while showing the window, so this runs after it
+            if (auto *dialog = dynamic_cast<wxDialog *>(window)) {
+                wxWeakRef<wxDialog> target(dialog);
+                dialog->CallAfter([target]() {
+                    if (target && target->IsShown())
+                        focus_accept_button(target.get());
+                });
+            }
+        }
+    } else if (type == wxEVT_KEY_DOWN) {
+        by_keyboard = true;
+        hops        = 0;
+        auto &key = static_cast<wxKeyEvent &>(event);
+        const int code = key.GetKeyCode();
+        const bool arrow = code == WXK_LEFT || code == WXK_RIGHT || code == WXK_UP || code == WXK_DOWN;
+        wxWindow *window = dynamic_cast<wxWindow *>(event.GetEventObject());
+        if (arrow && !key.HasAnyModifiers() && is_button_like(window) && window->HasFocus()) {
+            focus_sibling_button(window, code == WXK_RIGHT || code == WXK_DOWN);
+            return true;
+        }
+    } else if (type == wxEVT_SET_FOCUS && by_keyboard) {
+        wxWindow *window = dynamic_cast<wxWindow *>(event.GetEventObject());
+        if (!is_inert_focus_stop(window) || ++hops > 64)
+            return false;
+        const bool dir = forward;
+        wxWeakRef<wxWindow> target(window);
+        window->CallAfter([target, dir]() {
+            if (target && wxWindow::FindFocus() == target.get())
+                target->Navigate(dir ? wxNavigationKeyEvent::IsForward : wxNavigationKeyEvent::IsBackward);
+        });
+    }
+    return false;
+}
 
 CopyFileResult copy_file_gui(const std::string &from, const std::string &to, std::string& error_message, const bool with_check)
 {

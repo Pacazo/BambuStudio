@@ -360,7 +360,7 @@ public:
     bool isIp(std::string ipstr);
     void check_ip_address_failed(int result);
     void on_check_ip_address_failed(wxCommandEvent& evt);
-    void on_ok(wxMouseEvent& evt);
+    void on_ok(wxCommandEvent& evt);
     void on_send_retry();
     static void workerThreadFunc(std::weak_ptr<InputIpAddressDialog> dialog, std::string str_ip,
         std::string str_access_code, std::string sn, std::string model_id, int input_index, bool auto_base_ip);
@@ -387,8 +387,8 @@ public:
 
     //void on_ok(wxMouseEvent &evt);
     void on_dpi_changed(const wxRect& suggested_rect) override;
-    void on_open_expand(const wxMouseEvent& evt);
-    void on_uninstall(const wxMouseEvent& evt);
+    void on_open_expand(wxCommandEvent& evt);
+    void on_uninstall(wxCommandEvent& evt);
     void report_consent_unstall();
 };
 

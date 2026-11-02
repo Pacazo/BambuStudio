@@ -3204,6 +3204,13 @@ std::string get_system_info()
     return out.str();
 }
 
+int GUI_App::FilterEvent(wxEvent &event)
+{
+    if (filter_keyboard_focus(event))
+        return Event_Processed;
+    return wxApp::FilterEvent(event);
+}
+
 bool GUI_App::on_init_inner()
 {
     PERF_TRACE("Initializing application");
@@ -3601,6 +3608,14 @@ bool GUI_App::on_init_inner()
     Bind(EVT_CHECK_PRIVACY_SHOW, &GUI_App::show_check_privacy_dlg, this);
 
     Bind(EVT_SHOW_IP_DIALOG, &GUI_App::show_ip_address_enter_dialog_handler, this);
+
+    // Enter and Esc for the dialogs not built on DPIDialog: wxDialog only finds wxButton
+    Bind(wxEVT_CHAR_HOOK, [](wxKeyEvent &event) {
+        wxWindow *window = dynamic_cast<wxWindow *>(event.GetEventObject());
+        wxDialog *dialog = window ? dynamic_cast<wxDialog *>(wxGetTopLevelParent(window)) : nullptr;
+        if (dialog == nullptr || dynamic_cast<DPIDialog *>(dialog) || !handle_dialog_key(dialog, event))
+            event.Skip();
+    });
 
     // close the tooltips when the application loses the focus
     Bind(wxEVT_ACTIVATE_APP, [](wxActivateEvent& event) {

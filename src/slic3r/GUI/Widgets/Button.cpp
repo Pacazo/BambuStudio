@@ -48,6 +48,18 @@ bool Button::Create(wxWindow* parent, wxString text, wxString icon, long style, 
     StaticBox::Create(parent, btn_id, wxDefaultPosition, wxDefaultSize, style);
     state_handler.attach({&text_color});
     state_handler.update_binds();
+    // keyboard focus ring: the state handler only binds focus events when a colour asks
+    // for them, so track the focus here
+    Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &e) {
+        state_handler.set_state(StateHandler::Focused, StateHandler::Focused);
+        Refresh();
+        e.Skip();
+    });
+    Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &e) {
+        state_handler.set_state(0, StateHandler::Focused);
+        Refresh();
+        e.Skip();
+    });
     //BBS set default font
     SetFont(Label::Body_14);
     wxWindow::SetLabel(text);
@@ -147,6 +159,9 @@ bool Button::Enable(bool enable)
 {
     bool result = wxWindow::Enable(enable);
     if (result) {
+        if (!enable)
+            // a disabled button keeps no focus ring, it cannot be reached by Tab
+            state_handler.set_state(0, StateHandler::Focused);
         wxCommandEvent e(EVT_ENABLE_CHANGED);
         e.SetEventObject(this);
         GetEventHandler()->ProcessEvent(e);
@@ -154,7 +169,14 @@ bool Button::Enable(bool enable)
     return result;
 }
 
-void Button::SetCanFocus(bool canFocus) { this->canFocus = canFocus; }
+// callers use this to stop a button grabbing the focus when clicked, not to take it out
+// of the tab order, so keyboard focus stays available. wxWindow::Create calls this too, and
+// skipping the base left the GTK widget unfocusable, so SetFocus() silently did nothing
+void Button::SetCanFocus(bool canFocus)
+{
+    this->canFocus = canFocus;
+    StaticBox::SetCanFocus(true);
+}
 
 void Button::SetValue(bool state)
 {
@@ -204,6 +226,7 @@ void Button::render(wxDC& dc)
     if (m_left_corner_white || m_right_corner_white) {
         renderWhiteCorners(dc);
     }
+    renderFocusRing(dc);
     int states = state_handler.states();
     wxSize size = GetSize();
     dc.SetBrush(*wxTRANSPARENT_BRUSH);
@@ -308,6 +331,19 @@ void Button::SetLabelMark(const wxString& mark, const wxColour& colour)
     m_label_mark_colour = colour;
     messureSize();
     Refresh();
+}
+
+// thin ring matching the keyboard focused check boxes
+void Button::renderFocusRing(wxDC& dc)
+{
+    if ((state_handler.states() & StateHandler::Focused) == 0 || !IsEnabled())
+        return;
+    int width = std::max(1, FromDIP(1));
+    int inset = (width + 1) / 2;
+    wxSize size = GetSize();
+    dc.SetPen(wxPen(ThemeColor::BrandGreen, width));
+    dc.SetBrush(*wxTRANSPARENT_BRUSH);
+    dc.DrawRoundedRectangle(inset, inset, size.x - inset * 2, size.y - inset * 2, radius);
 }
 
 void Button::renderWhiteCorners(wxDC& dc)
@@ -454,15 +490,16 @@ void Button::mouseCaptureLost(wxMouseCaptureLostEvent &event)
 
 void Button::keyDownUp(wxKeyEvent &event)
 {
-    if (event.GetKeyCode() == WXK_SPACE || event.GetKeyCode() == WXK_RETURN) {
-        wxMouseEvent evt(event.GetEventType() == wxEVT_KEY_UP ? wxEVT_LEFT_UP : wxEVT_LEFT_DOWN);
-        event.SetEventObject(this);
-        GetEventHandler()->ProcessEvent(evt);
+    int code = event.GetKeyCode();
+    if (code == WXK_SPACE || code == WXK_RETURN || code == WXK_NUMPAD_ENTER) {
+        // activate on key up, without faking a click: the mouse path captures the mouse
+        if (event.GetEventType() == wxEVT_KEY_UP)
+            sendButtonEvent();
         return;
     }
     if (event.GetEventType() == wxEVT_KEY_DOWN &&
-        (event.GetKeyCode() == WXK_TAB || event.GetKeyCode() == WXK_LEFT || event.GetKeyCode() == WXK_RIGHT
-        || event.GetKeyCode() == WXK_UP || event.GetKeyCode() == WXK_DOWN))
+        (code == WXK_TAB || code == WXK_LEFT || code == WXK_RIGHT
+        || code == WXK_UP || code == WXK_DOWN))
         HandleAsNavigationKey(event);
     else
         event.Skip();
@@ -494,7 +531,7 @@ WXLRESULT Button::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam)
 
 #endif
 
-bool Button::AcceptsFocus() const { return canFocus; }
+bool Button::AcceptsFocus() const { return true; }
 
 void Button::EnableTooltipEvenDisabled()
 {

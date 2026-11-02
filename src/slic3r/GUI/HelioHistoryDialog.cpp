@@ -163,7 +163,7 @@ void HelioHistoryDialog::create_ui()
         m_button_close->SetTextColor(close_btn_text);
         m_button_close->SetMinSize(wxSize(FromDIP(100), FromDIP(36)));
         m_button_close->SetCornerRadius(FromDIP(6));
-        m_button_close->Bind(wxEVT_LEFT_DOWN, &HelioHistoryDialog::on_close, this);
+        m_button_close->Bind(wxEVT_BUTTON, &HelioHistoryDialog::on_close, this);
 
         button_sizer->Add(m_button_close, 0, wxALL, FromDIP(8));
     }
@@ -217,7 +217,7 @@ void HelioHistoryDialog::create_header(wxBoxSizer* parent_sizer)
     m_button_refresh->SetTextColor(refresh_btn_text);
     m_button_refresh->SetMinSize(wxSize(FromDIP(100), FromDIP(32)));
     m_button_refresh->SetCornerRadius(FromDIP(6));
-    m_button_refresh->Bind(wxEVT_LEFT_DOWN, &HelioHistoryDialog::on_refresh, this);
+    m_button_refresh->Bind(wxEVT_BUTTON, &HelioHistoryDialog::on_refresh, this);
 
     header_sizer->Add(m_button_refresh, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(16));
 
@@ -531,7 +531,7 @@ wxPanel* HelioHistoryDialog::create_run_card(wxWindow* parent, const HelioQuery:
     download_btn->SetTextColor(btn_text);
     download_btn->SetMinSize(wxSize(FromDIP(140), FromDIP(32)));
     download_btn->SetCornerRadius(FromDIP(4));
-    download_btn->Bind(wxEVT_LEFT_DOWN, [this, run](wxMouseEvent&) {
+    download_btn->Bind(wxEVT_BUTTON, [this, run](wxCommandEvent&) {
         // Use thermal index enhanced GCode URL for optimizations
         on_download_gcode(run.optimized_gcode_with_thermal_indexes_url, run.name);
     });
@@ -548,7 +548,7 @@ wxPanel* HelioHistoryDialog::create_run_card(wxWindow* parent, const HelioQuery:
     view_btn->SetTextColor(StateColor(std::pair<wxColour, int>(HELIO_TEXT, StateColor::Normal)));
     view_btn->SetMinSize(wxSize(FromDIP(120), FromDIP(32)));
     view_btn->SetCornerRadius(FromDIP(4));
-    view_btn->Bind(wxEVT_LEFT_DOWN, [this, run](wxMouseEvent&) {
+    view_btn->Bind(wxEVT_BUTTON, [this, run](wxCommandEvent&) {
         on_view_details_opt(run);
     });
 
@@ -641,7 +641,7 @@ wxPanel* HelioHistoryDialog::create_run_card(wxWindow* parent, const HelioQuery:
     download_btn->SetTextColor(btn_text);
     download_btn->SetMinSize(wxSize(FromDIP(140), FromDIP(32)));
     download_btn->SetCornerRadius(FromDIP(4));
-    download_btn->Bind(wxEVT_LEFT_DOWN, [this, run](wxMouseEvent&) {
+    download_btn->Bind(wxEVT_BUTTON, [this, run](wxCommandEvent&) {
         // Use thermal index enhanced GCode URL for simulations
         on_download_gcode(run.thermal_index_gcode_url, run.name);
     });
@@ -658,7 +658,7 @@ wxPanel* HelioHistoryDialog::create_run_card(wxWindow* parent, const HelioQuery:
     view_btn->SetTextColor(StateColor(std::pair<wxColour, int>(HELIO_TEXT, StateColor::Normal)));
     view_btn->SetMinSize(wxSize(FromDIP(120), FromDIP(32)));
     view_btn->SetCornerRadius(FromDIP(4));
-    view_btn->Bind(wxEVT_LEFT_DOWN, [this, run](wxMouseEvent&) {
+    view_btn->Bind(wxEVT_BUTTON, [this, run](wxCommandEvent&) {
         on_view_details_sim(run);
     });
 
@@ -670,13 +670,13 @@ wxPanel* HelioHistoryDialog::create_run_card(wxWindow* parent, const HelioQuery:
     return card;
 }
 
-void HelioHistoryDialog::on_refresh(wxMouseEvent& event)
+void HelioHistoryDialog::on_refresh(wxCommandEvent& event)
 {
     BOOST_LOG_TRIVIAL(info) << "Refresh button clicked";
     load_recent_runs();
 }
 
-void HelioHistoryDialog::on_close(wxMouseEvent& event)
+void HelioHistoryDialog::on_close(wxCommandEvent& event)
 {
     EndModal(wxID_CLOSE);
 }

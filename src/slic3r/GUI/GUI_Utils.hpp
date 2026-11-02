@@ -122,6 +122,30 @@ extern std::deque<wxDialog*> dialogStack;
 // modal loop can be flagged to exit in one pass (used during app shutdown).
 extern bool dialogStackForceEnd;
 
+// true when the focused control uses Enter itself, so the dialog must not steal it
+bool focus_consumes_enter(wxWindow *focus);
+// click the button with this id, if the dialog has an enabled one. Returns false otherwise.
+// The custom Button is not a wxButton, so wxDialog's own default button handling never
+// sees it; posting the command by id reaches both kinds.
+bool click_dialog_button(wxDialog *dialog, wxWindowID id);
+// accept or cancel a dialog from the keyboard, following the affirmative / escape ids
+bool dialog_accept(wxDialog *dialog);
+bool dialog_escape(wxDialog *dialog);
+// Enter and Esc of a dialog's char hook. Returns false when the key is not used.
+bool handle_dialog_key(wxDialog *dialog, wxKeyEvent &event);
+// keyboard for a painted panel standing in for a button: Space activates it, it counts as a
+// button for the arrows, and focus changes repaint it so its paint handler can draw the ring
+// on HasFocus()
+void bind_keyboard_click(wxWindow *window, std::function<void()> activate);
+// width of that ring
+int keyboard_focus_ring_width(const wxWindow *window);
+// app-wide keyboard focus rules, fed from wxApp::FilterEvent. Returns true when it used the event.
+// - focus does not stop on a panel that holds nothing focusable and draws no focus, like a
+//   separator line: wxPanel takes the focus itself then
+// - the arrows move between the buttons of a row, whatever kind of button has the focus
+// - a newly shown dialog starts on its accepting button
+bool filter_keyboard_focus(wxEvent &event);
+
 template<class P> class DPIAware : public P
 {
 public:
@@ -212,15 +236,9 @@ public:
 
         });
 
-        if (std::is_same<wxDialog, P>::value) {
+        if constexpr (std::is_same<wxDialog, P>::value) {
             this->Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& e) {
-                if (e.GetKeyCode() == WXK_ESCAPE) {
-                    //if (this->IsModal())
-                    //    this->EndModal(wxID_CANCEL);
-                    //else
-                        this->Close();
-                }
-                else
+                if (!handle_dialog_key(static_cast<wxDialog *>(static_cast<wxWindow *>(this)), e))
                     e.Skip();
                 });
         }

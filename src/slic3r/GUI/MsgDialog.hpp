@@ -95,6 +95,8 @@ protected:
     MsgButtonsHash  m_buttons;
 	CheckBox* m_checkbox_dsa{nullptr};
     wxString  m_forward_str;
+    // button Enter activates, focused once the dialog is laid out
+    Button *  m_affirmative_btn{nullptr};
 };
 
 

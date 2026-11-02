@@ -61,7 +61,7 @@ public:
     int              m_state{0};
     void             update_cali(MachineObject *obj);
     bool             is_stage_list_info_changed(MachineObject *obj);
-    void             on_start_calibration(wxMouseEvent &event);
+    void             on_start_calibration(wxCommandEvent &event);
     void             update_machine_obj(MachineObject *obj);
     bool             Show(bool show) override;
 };

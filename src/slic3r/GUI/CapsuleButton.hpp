@@ -18,7 +18,7 @@ private:
     void OnLeaveWindow(wxMouseEvent &event);
     void UpdateStatus();
 
-    wxBitmapButton *m_btn;
+    wxStaticBitmap *m_btn;
     Label          *m_label;
 
     wxBitmap tag_on_bmp;

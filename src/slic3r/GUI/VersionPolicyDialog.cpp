@@ -457,7 +457,7 @@ Button *VersionPolicyDialog::add_button(ButtonId id, const wxString &label, Butt
         style_button(button, background, ThemeColor::Grey400, ThemeColor::TextPrimary);
     }
 
-    button->Bind(wxEVT_LEFT_DOWN, [this, id](wxMouseEvent &) {
+    button->Bind(wxEVT_BUTTON, [this, id](wxCommandEvent &) {
         fire(id);
         EndModal(modal_result_of(id));
     });

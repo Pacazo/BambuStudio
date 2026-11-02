@@ -98,7 +98,7 @@ public:
     void show_legal_page();
     void show_pat_page();
     void request_pat();
-    void on_confirm(wxMouseEvent& e);
+    void on_confirm(wxCommandEvent& e);
     void report_consent_install();
     void open_url(std::string type);
     void create_legal_page();
@@ -253,7 +253,7 @@ private:
 
     void on_selected_simulation(wxMouseEvent& e) { update_action(0); }
     void on_selected_optimaztion(wxMouseEvent& e){ update_action(1); }
-    void on_confirm(wxMouseEvent& e);
+    void on_confirm(wxCommandEvent& e);
     void on_dpi_changed(const wxRect& suggested_rect) override;
     void update_action(int action);
     void show_advanced_mode();
@@ -300,8 +300,8 @@ public:
     ~HelioSimulationResultsDialog() {};
 
     void on_dpi_changed(const wxRect &suggested_rect) override;
-    void on_enhance_speed_quality(wxMouseEvent& event);
-    void on_view_details(wxMouseEvent& event);
+    void on_enhance_speed_quality(wxCommandEvent& event);
+    void on_view_details(wxCommandEvent& event);
 
 private:
     HelioQuery::SimulationResult m_simulation;

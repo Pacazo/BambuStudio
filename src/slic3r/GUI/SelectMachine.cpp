@@ -988,7 +988,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
 
     m_btn_bg_enable = StateColor(std::pair<wxColour, int>(wxColour(27, 136, 68), StateColor::Pressed), std::pair<wxColour, int>(wxColour(61, 203, 115), StateColor::Hovered),
         std::pair<wxColour, int>(wxColour(0, 174, 66), StateColor::Normal));
-    m_button_ensure = new Button(m_panel_prepare, _L("Send"));
+    m_button_ensure = new Button(m_panel_prepare, _L("Send"), "", 0, 0, wxID_OK);
     m_button_ensure->SetBackgroundColor(m_btn_bg_enable);
     m_button_ensure->SetBorderColor(m_btn_bg_enable);
     m_button_ensure->SetTextColor(StateColor::darkModeColorFor("#FFFFFE"));

@@ -43,7 +43,7 @@ class PhysicalPrinterDialog : public DPIDialog
     Button*             m_button_cancel                     {nullptr};
 
     void build_printhost_settings(ConfigOptionsGroup* optgroup);
-    void OnOK(wxMouseEvent& event);
+    void OnOK(wxCommandEvent& event);
 
 public:
     PhysicalPrinterDialog(wxWindow* parent);

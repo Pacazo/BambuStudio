@@ -447,7 +447,7 @@ MultiMachineManagerPage::MultiMachineManagerPage(wxWindow* parent)
     btn_last_page->SetMinSize(wxSize(FromDIP(20), FromDIP(20)));
     btn_last_page->SetMaxSize(wxSize(FromDIP(20), FromDIP(20)));
     btn_last_page->SetBackgroundColor(head_bg);
-    btn_last_page->Bind(wxEVT_LEFT_DOWN, [&](wxMouseEvent& evt) {
+    btn_last_page->Bind(wxEVT_BUTTON, [&](wxCommandEvent &evt) {
         evt.Skip();
         if (m_current_page == 0)
             return;
@@ -465,7 +465,7 @@ MultiMachineManagerPage::MultiMachineManagerPage(wxWindow* parent)
     btn_next_page->SetMinSize(wxSize(FromDIP(20), FromDIP(20)));
     btn_next_page->SetMaxSize(wxSize(FromDIP(20), FromDIP(20)));
     btn_next_page->SetBackgroundColor(head_bg);
-    btn_next_page->Bind(wxEVT_LEFT_DOWN, [&](wxMouseEvent& evt) {
+    btn_next_page->Bind(wxEVT_BUTTON, [&](wxCommandEvent &evt) {
         evt.Skip();
         if (m_current_page == m_total_page - 1)
             return;

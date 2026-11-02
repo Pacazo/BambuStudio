@@ -39,7 +39,7 @@ SingleChoiceDialog::SingleChoiceDialog(const wxString &message, const wxString &
     m_button_ok->SetCornerRadius(FromDIP(12));
     bSizer_button->Add(m_button_ok, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(int(dlg_width - 58 * 2) / 6));
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_OK); });
+    m_button_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_OK); });
 
     StateColor btn_bg_white(std::pair<wxColour, int>(wxColour(206, 206, 206), StateColor::Pressed), std::pair<wxColour, int>(wxColour(238, 238, 238), StateColor::Hovered),
                             std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
@@ -53,7 +53,7 @@ SingleChoiceDialog::SingleChoiceDialog(const wxString &message, const wxString &
     m_button_cancel->SetCornerRadius(FromDIP(12));
     bSizer_button->Add(m_button_cancel, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(int(dlg_width - 58 * 2) / 6));
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_CANCEL); });
+    m_button_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_CANCEL); });
 
     bSizer->Add(bSizer_button, 1, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, FromDIP(5));
 

@@ -103,6 +103,7 @@ private:
     void paintEvent(wxPaintEvent& evt);
 
     void render(wxDC& dc);
+    void renderFocusRing(wxDC &dc);
     void renderWhiteCorners(wxDC &dc);
 
     void messureSize();

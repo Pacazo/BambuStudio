@@ -17622,7 +17622,7 @@ public:
         proceed_button->SetSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         proceed_button->SetMinSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         proceed_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-        proceed_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        proceed_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             m_user_choice = 1;
             // Get the selected filament's material ID
             int selection = m_filament_combo->GetSelection();
@@ -17705,7 +17705,7 @@ public:
         goback_button->SetSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
         goback_button->SetMinSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
         goback_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-        goback_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        goback_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             m_user_choice = 2;
             EndModal(wxID_CANCEL);
         });
@@ -17910,7 +17910,7 @@ public:
         proceed_button->SetSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         proceed_button->SetMinSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         proceed_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-        proceed_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        proceed_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             m_user_choice = 1;
             int selection = m_material_combo->GetSelection();
             if (selection >= 0 && selection < (int)m_similar_materials.size()) {
@@ -17984,7 +17984,7 @@ public:
         goback_button->SetSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
         goback_button->SetMinSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
         goback_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-        goback_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        goback_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             m_user_choice = 2;
             EndModal(wxID_CANCEL);
         });
@@ -18038,7 +18038,7 @@ public:
         refresh_button->SetSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         refresh_button->SetMinSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
         refresh_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-        refresh_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        refresh_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             m_user_choice = 3;
             EndModal(wxID_APPLY);
         });
@@ -18873,7 +18873,7 @@ int Plater::priv::update_helio_background_process_once(std::string& printer_id,
                     proceed_button->SetSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
                     proceed_button->SetMinSize(wxSize(wxWindowBase::FromDIP(130, this), wxWindowBase::FromDIP(28, this)));
                     proceed_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-                    proceed_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_OK); });
+                    proceed_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_OK); });
                     option1_button_sizer->Add(proceed_button, 0);
 
                     option1_sizer->Add(option1_button_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT, wxWindowBase::FromDIP(16, this));
@@ -18940,7 +18940,7 @@ int Plater::priv::update_helio_background_process_once(std::string& printer_id,
                     goback_button->SetSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
                     goback_button->SetMinSize(wxSize(wxWindowBase::FromDIP(100, this), wxWindowBase::FromDIP(28, this)));
                     goback_button->SetCornerRadius(wxWindowBase::FromDIP(12, this));
-                    goback_button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { EndModal(wxID_CANCEL); });
+                    goback_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) { EndModal(wxID_CANCEL); });
                     option2_button_sizer->Add(goback_button, 0);
 
                     option2_sizer->Add(option2_button_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT, wxWindowBase::FromDIP(20, this));
@@ -25778,8 +25778,8 @@ public:
 
     void      select_radio(int index);
     void      on_select_radio(wxMouseEvent &event);
-    void      on_select_ok(wxMouseEvent &event);
-    void      on_select_cancel(wxMouseEvent &event);
+    void      on_select_ok(wxCommandEvent &event);
+    void      on_select_cancel(wxCommandEvent &event);
 
     int       get_select_radio(int groupid);
     int       get_action() const { return m_action; }
@@ -25901,7 +25901,7 @@ ProjectDropDialog::ProjectDropDialog(const std::string &filename)
     m_confirm->SetSize(PROJECT_DROP_DIALOG_BUTTON_SIZE);
     m_confirm->SetMinSize(PROJECT_DROP_DIALOG_BUTTON_SIZE);
     m_confirm->SetCornerRadius(FromDIP(12));
-    m_confirm->Bind(wxEVT_LEFT_DOWN, &ProjectDropDialog::on_select_ok, this);
+    m_confirm->Bind(wxEVT_BUTTON, &ProjectDropDialog::on_select_ok, this);
     m_sizer_right->Add(m_confirm, 0, wxALL, 5);
 
     m_cancel = new Button(this, _L("Cancel"));
@@ -25909,7 +25909,7 @@ ProjectDropDialog::ProjectDropDialog(const std::string &filename)
     m_cancel->SetSize(PROJECT_DROP_DIALOG_BUTTON_SIZE);
     m_cancel->SetMinSize(PROJECT_DROP_DIALOG_BUTTON_SIZE);
     m_cancel->SetCornerRadius(FromDIP(12));
-    m_cancel->Bind(wxEVT_LEFT_DOWN, &ProjectDropDialog::on_select_cancel, this);
+    m_cancel->Bind(wxEVT_BUTTON, &ProjectDropDialog::on_select_cancel, this);
     m_sizer_right->Add(m_cancel, 0, wxALL, 5);
 
     m_sizer_bottom->Add( m_sizer_right, 0, wxEXPAND, 5 );
@@ -26064,13 +26064,13 @@ void ProjectDropDialog::on_select_radio(wxMouseEvent &event)
     }
 }
 
-void ProjectDropDialog::on_select_ok(wxMouseEvent &event)
+void ProjectDropDialog::on_select_ok(wxCommandEvent &event)
 {
     wxGetApp().app_config->set_bool("show_drop_project_dialog", m_show_again);
     EndModal(wxID_OK);
 }
 
-void ProjectDropDialog::on_select_cancel(wxMouseEvent &event)
+void ProjectDropDialog::on_select_cancel(wxCommandEvent &event)
 {
     EndModal(wxID_CANCEL);
 }

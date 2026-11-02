@@ -102,6 +102,8 @@ int TabCtrl::AppendItem(const wxString &item,
 {
     Button * btn = new Button();
     btn->Create(this, item, "", wxBORDER_NONE);
+    // the tab control takes the focus and moves between tabs with the arrows
+    btn->DisableFocusFromKeyboard();
     btn->SetFont(GetFont());
     btn->SetTextColor(StateColor(
         std::make_pair(0x6B6B6C, (int) StateColor::NotChecked),
@@ -304,6 +306,10 @@ void TabCtrl::keyDown(wxKeyEvent &event)
         } else if ((event.GetKeyCode() == WXK_DOWN || event.GetKeyCode() == WXK_RIGHT) && GetSelection() + 1 < btns.size()) {
             SelectItem(GetSelection() + 1);
         }
+        break;
+    default:
+        // let Tab and the rest through, they were swallowed here
+        event.Skip();
         break;
     }
 }

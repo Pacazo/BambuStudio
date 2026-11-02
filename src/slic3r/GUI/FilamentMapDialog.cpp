@@ -725,8 +725,8 @@ void FilamentMapDialog::make_footer(wxBoxSizer *main_sizer, const FilamentMapMod
 
     {
         wxBoxSizer *button_sizer = new wxBoxSizer(wxHORIZONTAL);
-        m_ok_btn                 = new Button(bottom_panel, _L("OK"));
-        m_cancel_btn             = new Button(bottom_panel, _L("Cancel"));
+        m_ok_btn                 = new Button(bottom_panel, _L("OK"), "", 0, 0, wxID_OK);
+        m_cancel_btn             = new Button(bottom_panel, _L("Cancel"), "", 0, 0, wxID_CANCEL);
         m_ok_btn->SetCornerRadius(FromDIP(12));
         m_cancel_btn->SetCornerRadius(FromDIP(12));
         m_ok_btn->SetFont(Label::Body_12);

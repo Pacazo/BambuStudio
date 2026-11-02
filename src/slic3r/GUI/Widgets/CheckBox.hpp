@@ -17,7 +17,7 @@ public:
 
 	void Rescale();
 
-#ifdef __WXOSX__
+#if defined(__WXOSX__) || defined(__WXGTK__)
     virtual bool Enable(bool enable = true) wxOVERRIDE;
 #endif
 

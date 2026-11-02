@@ -178,7 +178,7 @@ CalibrationDialog::CalibrationDialog(Plater *plater)
     Layout();
     Fit();
 
-    m_calibration_btn->Bind(wxEVT_LEFT_DOWN, &CalibrationDialog::on_start_calibration, this);
+    m_calibration_btn->Bind(wxEVT_BUTTON, &CalibrationDialog::on_start_calibration, this);
 }
 
 CalibrationDialog::~CalibrationDialog() {}
@@ -339,7 +339,7 @@ bool CalibrationDialog::is_stage_list_info_changed(MachineObject *obj)
     return false;
 }
 
-void CalibrationDialog::on_start_calibration(wxMouseEvent &event)
+void CalibrationDialog::on_start_calibration(wxCommandEvent &event)
 {
     if (m_obj) {
         if (m_obj->is_calibration_done()) {

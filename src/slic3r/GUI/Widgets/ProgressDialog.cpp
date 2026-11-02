@@ -380,7 +380,7 @@ bool ProgressDialog::Create(const wxString &title, const wxString &message, int 
     //        m_button_calcel->SetSize(60, 24);
     //        m_button_calcel->SetPosition(wxPoint(m_button_sizer->GetSize().GetWidth() - m_button_calcel->GetSize().GetWidth(), 0));
     //
-    //        m_button_calcel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
+    //        m_button_calcel->Bind(wxEVT_BUTTON, [this](wxCommandEvent &event) {
     //            if (m_state == Finished) {
     //                event.Skip();
     //            } else {
@@ -422,7 +422,7 @@ Button *ProgressDialog::CreateCancelButton()
     button->SetTextColor(PROGRESSDIALOG_GREY_700);
     button->SetMinSize(PROGRESSDIALOG_CANCEL_BUTTON_SIZE);
     button->SetCornerRadius(PROGRESSDIALOG_CANCEL_BUTTON_SIZE.y / 2);
-    button->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
+    button->Bind(wxEVT_BUTTON, [this](wxCommandEvent &event) {
         if (m_state == Finished) {
             event.Skip();
         } else {

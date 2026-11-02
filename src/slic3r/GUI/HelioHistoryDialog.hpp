@@ -67,8 +67,8 @@ private:
     wxPanel* create_run_card(wxWindow* parent, const HelioQuery::SimulationRun& run, const HelioInputDialogTheme& theme);
 
     // Actions
-    void on_refresh(wxMouseEvent& event);
-    void on_close(wxMouseEvent& event);
+    void on_refresh(wxCommandEvent& event);
+    void on_close(wxCommandEvent& event);
     void on_download_gcode(const std::string& gcode_url, const std::string& run_name);
     void on_view_details_opt(const HelioQuery::OptimizationRun& run);
     void on_view_details_sim(const HelioQuery::SimulationRun& run);

@@ -1113,7 +1113,7 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection *dependent_
 
     auto add_btn = [this, m_sizer_button, btn_font, dependent_presets, btn_bg_green](Button **btn, int &btn_id, Action close_act, const wxString &label,
                                                                               bool focus, bool process_enable = true) {
-        *btn = new Button(this, _L(label));
+        *btn = new Button(this, _L(label), "", 0, 0, btn_id);
 
         if (focus) {
             (*btn)->SetBackgroundColor(btn_bg_green);
@@ -1142,6 +1142,10 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection *dependent_
     };
 
     bool is_copy = new_selected_preset == "SyncExtruderParams";
+    // real ids so Enter and Esc can find the buttons
+    m_save_btn_id     = wxID_SAVE;
+    m_continue_btn_id = wxID_NO;
+    m_move_btn_id     = wxID_APPLY;
     // "Save" button
     if (ActionButtons::SAVE & m_buttons) add_btn(&m_save_btn, m_save_btn_id, is_copy ? Action::Transfer : Action::Save, is_copy ? _L("Yes") : _L("Save"), true);
 
@@ -1167,7 +1171,7 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection *dependent_
       cancel_btn->SetFont(btn_font);*/
     /* m_cancel_btn = new Button(this, _L("Cancel"));
      m_cancel_btn->SetTextColor(wxColour(107, 107, 107));
-     m_cancel_btn->Bind(wxEVT_LEFT_DOWN, [this](wxEvent &) { this->EndModal(wxID_CANCEL); });
+     m_cancel_btn->Bind(wxEVT_BUTTON, [this](wxEvent &) { this->EndModal(wxID_CANCEL); });
      m_cancel_btn->SetMinSize(UNSAVE_CHANGE_DIALOG_BUTTON_SIZE);
      m_cancel_btn->SetCornerRadius(12);
      m_sizer_button->Add(m_cancel_btn, 0, wxLEFT, 5);
@@ -1183,6 +1187,11 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection *dependent_
     Layout();
     Fit();
     Centre(wxBOTH);
+
+    // Enter accepts the primary action, the dialog has no Cancel button to escape to
+    SetAffirmativeId(m_save_btn ? m_save_btn_id : m_transfer_btn ? m_move_btn_id : wxID_NONE);
+    if (Button *primary = m_save_btn ? m_save_btn : m_transfer_btn ? m_transfer_btn : m_discard_btn)
+        primary->SetFocus();
 
     if (params) {
         if (params->left_to_right)
