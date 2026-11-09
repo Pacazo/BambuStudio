@@ -399,6 +399,15 @@ bool try_pop_up_before_slice(bool is_slice_all, Plater* plater_ref, PartPlate* p
                 std::vector<int> new_volume_maps(filament_colors.size(), 0);
                 std::copy_n(last_maps.begin(), std::min(last_maps.size(), new_maps.size()), new_maps.begin());
                 std::copy_n(last_volume_maps.begin(), std::min(last_volume_maps.size(), new_volume_maps.size()), new_volume_maps.begin());
+                // the stored grouping may come from another printer or a damaged config
+                const auto *nozzle_diameters = full_config.option<ConfigOptionFloatsNullable>("nozzle_diameter");
+                const int   extruder_count   = nozzle_diameters ? int(nozzle_diameters->values.size()) : 1;
+                for (int &extruder : new_maps)
+                    if (extruder < 1 || extruder > extruder_count)
+                        extruder = 1;
+                for (int &volume_type : new_volume_maps)
+                    if (volume_type < 0 || volume_type >= int(nvtCount))
+                        volume_type = 0;
                 plate->set_filament_map_mode(fmmManual);
                 plate->set_filament_maps(new_maps);
                 plate->set_filament_volume_maps(new_volume_maps);
