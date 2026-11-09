@@ -101,6 +101,11 @@ namespace Slic3r
 
     DeviceManager::~DeviceManager()
     {
+        // the probing thread uses the agent, which is deleted right after this
+        m_destroying = true;
+        if (m_restore_thread.joinable())
+            m_restore_thread.join();
+
         delete m_refresher;
 
         for (auto it = localMachineList.begin(); it != localMachineList.end(); it++)
@@ -473,10 +478,13 @@ namespace Slic3r
 
         if (local_access_infos.empty()) return;
 
+        // one probing thread at a time, it already covers these machines
+        if (m_restore_thread.joinable() && !m_restore_thread.try_join_for(boost::chrono::milliseconds(0))) return;
+
         NetworkAgent* agent = m_agent;
-        boost::thread([agent, local_access_infos] {
+        m_restore_thread = boost::thread([this, agent, local_access_infos] {
             for (const auto& local_access_info : local_access_infos) {
-                if (GUI::wxGetApp().is_closing()) return;
+                if (m_destroying) return;
 
                 // bind_detect is a hint, not a gate. It used to skip the device whenever the probe
                 // was not conclusive, so a sleeping printer or a transient network hiccup was
@@ -516,18 +524,21 @@ namespace Slic3r
                     detectData.dev_name     = local_access_info.dev_id;
                     detectData.connect_type = "lan";
                     detectData.bind_state   = "free";
-                    detectData.model_id     = printer_type_with_presets(DevPrinterConfigUtil::get_model_id_by_dev_id(local_access_info.dev_id));
                 }
 
+                if (m_destroying) return;
                 const bool found = reject_reason == nullptr;
                 GUI::wxGetApp().CallAfter([detectData, local_access_info, found]() {
                     if (GUI::wxGetApp().is_closing()) return;
                     if (DeviceManager* dev = GUI::wxGetApp().getDeviceManager()) {
                         if (dev->get_local_machine(local_access_info.dev_id)) return;
 
+                        // the presets are read here, on the main thread
+                        const std::string model_id = found ? detectData.model_id :
+                            printer_type_with_presets(DevPrinterConfigUtil::get_model_id_by_dev_id(local_access_info.dev_id));
                         auto obj = dev->insert_local_device(detectData.dev_name, detectData.dev_id, local_access_info.dev_ip,
                                                             detectData.connect_type, detectData.bind_state, detectData.version,
-                                                            local_access_info.access_code, detectData.model_id);
+                                                            local_access_info.access_code, model_id);
                         if (obj) {
                             obj->set_user_access_code(local_access_info.access_code);
                             // Listed but not found: show it as offline until it answers
@@ -536,7 +547,7 @@ namespace Slic3r
                     }
                 });
             }
-        }).detach();
+        });
     }
 
     int DeviceManager::query_bind_status(std::string& msg)

@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <mutex>
@@ -7,6 +8,7 @@
 #include "slic3r/Utils/json_diff.hpp"
 #include <wx/string.h>
 #include <wx/timer.h>
+#include <boost/thread/thread.hpp>
 
 namespace Slic3r
 {
@@ -30,6 +32,8 @@ private:
     std::map<std::string, MachineObject*> localMachineList;     /* dev_id -> MachineObject*, localMachine SSDP   */
     std::map<std::string, MachineObject*> userMachineList;      /* dev_id -> MachineObject*  cloudMachine of User */
     std::chrono::steady_clock::time_point m_last_lan_reconnect; /* last automatic reconnection of the selected LAN machine */
+    boost::thread     m_restore_thread;                         /* probes the saved LAN machines, joined on destruction */
+    std::atomic<bool> m_destroying{ false };
 
 public:
     DeviceManager(NetworkAgent* agent = nullptr);

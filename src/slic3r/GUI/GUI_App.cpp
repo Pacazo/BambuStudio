@@ -2994,6 +2994,10 @@ int GUI_App::OnExit()
         m_fila_manager_store = nullptr;
     }
 
+    // probes the last selected LAN machine through the agent, which is deleted below
+    if (m_load_last_machine.local_bind_thread.joinable())
+        m_load_last_machine.local_bind_thread.join();
+
     if (m_device_manager) {
         BOOST_LOG_TRIVIAL(warning) << "deleting m_device_manager (is_closing=" << is_closing() << ")";
         delete m_device_manager;
