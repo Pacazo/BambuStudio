@@ -28764,10 +28764,14 @@ int Plater::send_gcode(int plate_idx, Export3mfProgressFn proFn)
 
     // the start delay is not a slicing parameter: send a copy with the waits, keeping the
     // sliced gcode and the preview untouched
+    // only into the plate the job prints: the given one, else the current one (see PrintJob)
     std::string  delayed_gcode;
-    GCodeProcessorResult *gcode_result = plate->get_slice_result();
+    PartPlate   *delayed_plate = plate_idx >= 0 ? get_partplate_list().get_plate(plate_idx) : nullptr;
+    if (delayed_plate == nullptr)
+        delayed_plate = plate;
+    GCodeProcessorResult *gcode_result = delayed_plate->get_slice_result();
     if (p->m_start_delay > 0 && gcode_result && !gcode_result->filename.empty()) {
-        boost::filesystem::path delayed_path(plate->get_tmp_gcode_path());
+        boost::filesystem::path delayed_path(delayed_plate->get_tmp_gcode_path());
         delayed_path.replace_extension("delay.gcode");
         if (inject_start_delay(gcode_result->filename, delayed_path.string(), p->m_start_delay))
             delayed_gcode = delayed_path.string();
@@ -28781,16 +28785,18 @@ int Plater::send_gcode(int plate_idx, Export3mfProgressFn proFn)
         gcode_result->filename = delayed_gcode;
     }
 
+    // also when the export throws: the sliced gcode must not stay replaced by the delayed copy
+    ScopeGuard restore_sliced_gcode([this, gcode_result, &sliced_gcode, &delayed_gcode]() {
+        if (!delayed_gcode.empty()) {
+            gcode_result->filename = sliced_gcode;
+            boost::system::error_code ec;
+            boost::filesystem::remove(delayed_gcode, ec);
+        }
+        // belongs to the job just sent, the next one sets it again
+        p->m_start_delay = 0;
+    });
+
     result = export_3mf(p->m_print_job_data._3mf_path, strategy, plate_idx, proFn);
-
-    if (!delayed_gcode.empty()) {
-        gcode_result->filename = sliced_gcode;
-        boost::system::error_code ec;
-        boost::filesystem::remove(delayed_gcode, ec);
-    }
-
-    // belongs to the job just sent, the next one sets it again
-    p->m_start_delay = 0;
 
     return result;
 }
