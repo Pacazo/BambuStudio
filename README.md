@@ -1,3 +1,45 @@
+# BambuStudio, customised for the H2C
+
+This is a personal fork of [Bambu Studio](https://github.com/bambulab/BambuStudio), the slicer for Bambu Lab 3D printers. It follows the upstream `master` branch and adds my own changes on top, in the `custom` branch.
+
+## Why this fork exists
+
+I print on a Bambu Lab H2C from Linux, on a LAN, and buy filament from the Japanese Bambu Lab store. Stock Bambu Studio got in the way often enough that I started fixing it: options the slicer engine supports but the UI does not show, dialogs that interrupt every slice, a filament inventory that needs a cloud account, a printer that vanishes from the device list when the network changes, and a number of GTK bugs. The changes are made for my own setup and are tested only on the H2C and on Linux.
+
+## What it improves over the original
+
+Everything this fork adds or changes is marked in the UI with a red ●, so it is easy to tell apart from stock Bambu Studio. Advanced and developer mode parameters get a green and a dark green ● too. The marks can be hidden in Preferences.
+
+**Slicing and print quality**
+- Override the chamber and bed temperatures for the whole print from the process settings, with an option to keep the chamber closed instead of cooled.
+- Ironing flow calibration test in the Calibration menu: one band ironed with the flow growing from a minimum to a maximum, labelled with the filament name and colour code.
+- "Minimum line width on interface", for the layer resting directly on supports or on a raft.
+- "Raft expansion" shown in the UI, and honoured by the tree support generator.
+- Speeds set on an object or a height range apply to every nozzle, not only to the left one.
+- No more oozing travel across the sparse bands of the prime tower.
+- Process defaults tuned for the H2C: Arachne walls, no arc fitting, support ironing on.
+
+**Workflow**
+- "Filament grouping mode": choose once how filaments are assigned to the nozzles instead of answering the dialog before every slice.
+- "Start delay" when sending a print job: the printer waits the given minutes before starting.
+- Offline Filament Manager: the spool inventory is kept in a local file, with no cloud account and nothing sent to Bambu Lab.
+- LAN printers stay in the device list when they are offline or the network changes, reconnect on their own, and can follow a change of subnet. Only the remove button forgets a printer.
+- The left/right nozzle switches are hidden on printers whose two nozzles are alike (H2C, H2D).
+- Filament prices in JPY, from the Japanese store.
+
+**Interface**
+- F1 to F12 select the main tabs, and Tab moves between fields with a visible focus indicator on GTK.
+- Filament names next to the colour swatches in the object list.
+- Tooltips and popups close when the application loses the focus.
+- Tooltips for the many options that had none.
+- Assorted fixes: crashes when starting a second instance and when slicing some 3mf files, the printing progress label, the object list context menu on GTK.
+
+The version string carries a custom suffix, so a build of this fork is never mistaken for an official release. There are no prebuilt binaries: build it following the Linux guide below.
+
+The original README follows.
+
+---
+
 ![image](https://user-images.githubusercontent.com/106916061/179006347-497d24c0-9bd6-45b7-8c49-d5cc8ecfe5d7.png)
 # BambuStudio
 Bambu Studio is a cutting-edge, feature-rich slicing software.  
