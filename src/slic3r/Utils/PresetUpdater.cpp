@@ -124,19 +124,20 @@ int copy_directory_fix(const fs::path &source, const fs::path &target, std::stri
 
 int copy_directory_inner(const fs::path &source, const fs::path &target, std::string &error_message)
 {
-    if (fs::exists(target)) {
-        boost::system::error_code ec;
-        fs::remove_all(target, ec);
-        if (ec) {
-            error_message = ec.message();
-            BOOST_LOG_TRIVIAL(error) << "copy_directory_fix: Failed to remove existing target directory: " + error_message;
-            return -1;
-        }
-    }
+    // copy beside the target and swap at the end: a start interrupted while copying must not leave
+    // the target half written
+    const fs::path staging(target.string() + ".installing");
+    const fs::path replaced(target.string() + ".replaced");
+    boost::system::error_code ec;
+    fs::remove_all(staging, ec);
+    fs::remove_all(replaced, ec);
     std::vector<std::pair<fs::path, fs::path>> files;
 
-    int ret = copy_directory_fix(source, target, error_message, files);
-    if (ret) { return ret; }
+    int ret = copy_directory_fix(source, staging, error_message, files);
+    if (ret) {
+        fs::remove_all(staging, ec);
+        return ret;
+    }
     std::atomic<int> retVal = 0;
     tbb::parallel_for(tbb::blocked_range<int>(0, files.size()), [&files, &error_message, &retVal](const tbb::blocked_range<int> &range) {
         for (auto i = range.begin(); i != range.end(); ++i) {
@@ -152,7 +153,32 @@ int copy_directory_inner(const fs::path &source, const fs::path &target, std::st
             }
         }
     });
-    return retVal.load();
+    if (retVal.load()) {
+        fs::remove_all(staging, ec);
+        return retVal.load();
+    }
+
+    if (fs::exists(target)) {
+        fs::rename(target, replaced, ec);
+        if (ec) {
+            error_message = ec.message();
+            BOOST_LOG_TRIVIAL(error) << "copy_directory_fix: Failed to replace existing target directory: " + error_message;
+            fs::remove_all(staging, ec);
+            return -1;
+        }
+    }
+    fs::rename(staging, target, ec);
+    if (ec) {
+        error_message = ec.message();
+        BOOST_LOG_TRIVIAL(error) << "copy_directory_fix: Failed to move the copied directory into place: " + error_message;
+        // put the previous one back
+        boost::system::error_code ec_restore;
+        fs::rename(replaced, target, ec_restore);
+        fs::remove_all(staging, ec_restore);
+        return -1;
+    }
+    fs::remove_all(replaced, ec);
+    return 0;
 }
 
 struct Update
