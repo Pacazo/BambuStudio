@@ -22,6 +22,7 @@
 #include <boost/nowide/cenv.hpp>
 #include <boost/nowide/iostream.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <boost/nowide/cstdio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/format.hpp>
 #include <string.h>
@@ -1627,22 +1628,36 @@ void ConfigBase::save_to_json(const std::string &file, const std::string &name, 
         }
     }
 
+    // write beside the file and rename: an interrupted or failed write must not truncate it
+    const std::string file_tmp = file + ".tmp";
     boost::nowide::ofstream c;
-    c.open(file, std::ios::out | std::ios::trunc);
+    c.open(file_tmp, std::ios::out | std::ios::trunc);
     c << std::setw(4) << j << std::endl;
     c.close();
+    if (c.fail() || rename_file(file_tmp, file)) {
+        boost::nowide::remove(file_tmp.c_str());
+        BOOST_LOG_TRIVIAL(error) << boost::format("failed to save config to %1%\n") % PathSanitizer::sanitize(file);
+        return;
+    }
 
     BOOST_LOG_TRIVIAL(info) << boost::format("saved config to %1%\n") % PathSanitizer::sanitize(file);
 }
 
 void ConfigBase::save(const std::string &file) const
 {
+    // write beside the file and rename: an interrupted or failed write must not truncate it
+    const std::string file_tmp = file + ".tmp";
     boost::nowide::ofstream c;
-    c.open(file, std::ios::out | std::ios::trunc);
+    c.open(file_tmp, std::ios::out | std::ios::trunc);
     c << "# " << Slic3r::header_slic3r_generated() << std::endl;
     for (const std::string &opt_key : this->keys())
         c << opt_key << " = " << this->opt_serialize(opt_key) << std::endl;
     c.close();
+    if (c.fail() || rename_file(file_tmp, file)) {
+        boost::nowide::remove(file_tmp.c_str());
+        BOOST_LOG_TRIVIAL(error) << boost::format("failed to save config to %1%\n") % file;
+        return;
+    }
 
     BOOST_LOG_TRIVIAL(info) << boost::format("saved config to %1%\n")%file;
 }

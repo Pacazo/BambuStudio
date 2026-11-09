@@ -18,6 +18,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/nowide/cenv.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <boost/nowide/cstdio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -986,6 +987,13 @@ void AppConfig::save()
     if (copy_file(path_pid, backup_path, error_message, false) != SUCCESS)
         BOOST_LOG_TRIVIAL(error) << "Copying from " << PathSanitizer::sanitize(path_pid) << " to " << PathSanitizer::sanitize(backup_path) << " failed. Failed to create a backup configuration.";
 #endif
+
+    // a failed write, e.g. on a full disk, must not replace the config with a truncated one
+    if (c.fail()) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to write the configuration to " << PathSanitizer::sanitize(path_pid) << ", keeping the previous one.";
+        boost::nowide::remove(path_pid.c_str());
+        return;
+    }
 
     // Rename the config atomically.
     // On Windows, the rename is likely NOT atomic, thus it may fail if PrusaSlicer crashes on another thread in the meanwhile.
