@@ -188,6 +188,8 @@ public:
     // BBS
     ExPolygons              loverhangs;
     std::vector<std::pair<ExPolygon, int>> loverhangs_with_type;
+    // areas expected to rest on a zero gap support interface, for min_line_width_on_interface
+    ExPolygons              interface_contact;
     BoundingBox             loverhangs_bbox;
     std::vector<LoopNode>   loop_nodes;
     size_t                  region_count() const { return m_regions.size(); }

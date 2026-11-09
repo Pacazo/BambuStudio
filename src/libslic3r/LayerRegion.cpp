@@ -164,7 +164,10 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
     Flow overhang_flow      = wall_layer_height > this->layer()->height + EPSILON ?
         wall_flow(frPerimeter).with_flow_ratio(region_config.bridge_flow) :
         this->bridging_flow(frPerimeter, object_config.thick_bridges);
-    // min_line_width_on_interface: every wall of the first layer on a raft, only the overhang walls above supports
+    // min_line_width_on_interface: every wall of the first layer on a raft, only the overhang walls resting on
+    // the support interface
+    Flow              overhang_flow_on_interface = overhang_flow;
+    const ExPolygons *interface_contact          = nullptr;
     auto min_width_on_interface = [&object_config](const Flow &flow) {
         return float(object_config.min_line_width_on_interface.value * 0.01 * flow.nozzle_diameter());
     };
@@ -176,15 +179,17 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
         perimeter_flow     = widen_on_interface(perimeter_flow);
         ext_perimeter_flow = widen_on_interface(ext_perimeter_flow);
         solid_infill_flow  = widen_on_interface(solid_infill_flow);
-    } else if (this->layer()->lower_layer != nullptr && min_line_width_on_support_interface(object_config)) {
+    } else if (this->layer()->lower_layer != nullptr && ! this->layer()->interface_contact.empty() &&
+               min_line_width_on_support_interface(object_config)) {
+        interface_contact = &this->layer()->interface_contact;
         const float min_width = min_width_on_interface(overhang_flow);
         if (overhang_flow.bridge()) {
             // thick bridge: its diameter is the line width
             if (overhang_flow.width() < min_width)
-                overhang_flow = Flow::bridging_flow(min_width, overhang_flow.nozzle_diameter());
+                overhang_flow_on_interface = Flow::bridging_flow(min_width, overhang_flow.nozzle_diameter());
         } else if (perimeter_flow.width() < min_width) {
             // widen the nominal line, then apply the bridge flow ratio as bridging_flow() does
-            overhang_flow = perimeter_flow.with_width(min_width).with_flow_ratio(region_config.bridge_flow);
+            overhang_flow_on_interface = perimeter_flow.with_width(min_width).with_flow_ratio(region_config.bridge_flow);
         }
     }
 
@@ -225,6 +230,8 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const Perimet
     g.slice_z               = this->layer()->slice_z;
     g.ext_perimeter_flow    = ext_perimeter_flow;
     g.overhang_flow         = overhang_flow;
+    g.overhang_flow_on_interface = overhang_flow_on_interface;
+    g.interface_contact     = interface_contact;
     g.solid_infill_flow     = solid_infill_flow;
     g.perimeter_regions     = &perimeter_regions;
 

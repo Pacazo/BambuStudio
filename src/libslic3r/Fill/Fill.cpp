@@ -199,6 +199,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 	std::vector<std::vector<const SurfaceFillParams*>> 	region_to_surface_params(layer.regions().size(), std::vector<const SurfaceFillParams*>());
     bool 												has_internal_voids = false;
 	const PrintObjectConfig&							object_config = layer.object()->config();
+	// min_line_width_on_interface: bottom surfaces partly on the support interface, by region and surface
+	struct InterfaceSplit { const SurfaceFillParams *params; ExPolygons on_interface; ExPolygons remainder; };
+	std::map<std::pair<size_t, size_t>, InterfaceSplit> interface_splits;
 
 	auto append_flow_param = [](std::map<Flow, ExPolygons> &flow_params, Flow flow, const ExPolygon &exp) {
         auto it = flow_params.find(flow);
@@ -329,27 +332,24 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 		                params.flow = layerm.bridging_flow(extrusion_role, false);
 		        }
 
-				// min_line_width_on_interface: bottom surface on the support or raft interface, without a Z gap to it
-				const float min_width_on_interface = float(object_config.min_line_width_on_interface.value * 0.01 * params.flow.nozzle_diameter());
-				const bool  on_interface = min_width_on_interface > 0.f && surface.is_bottom() &&
-					(layer.lower_layer == nullptr ? min_line_width_on_raft_interface(object_config) :
-					                                min_line_width_on_support_interface(object_config));
-				if (on_interface) {
-					if (params.flow.bridge()) {
+				// min_line_width_on_interface: the flow of a bottom surface on the raft or support interface
+				auto widen_on_interface = [&](const Flow &flow) {
+					const float min_width = float(object_config.min_line_width_on_interface.value * 0.01 * flow.nozzle_diameter());
+					if (flow.bridge())
 						// thick bridge: its diameter is the line width
-						if (params.flow.width() < min_width_on_interface)
-							params.flow = Flow::bridging_flow(min_width_on_interface, params.flow.nozzle_diameter());
-					} else {
-						// widen the nominal line, then apply the bridge flow ratio as layerm.bridging_flow() does
-						Flow nominal = params.bridge ? layerm.region().flow(*layer.object(), extrusion_role, surface_height,
-						                                                    layer.id() == 0 || starts_at_object_base) :
-						                               params.flow;
-						if (nominal.width() < min_width_on_interface) {
-							nominal     = nominal.with_width(min_width_on_interface);
-							params.flow = params.bridge ? nominal.with_flow_ratio(region_config.bridge_flow) : nominal;
-						}
-					}
-				}
+						return flow.width() < min_width ? Flow::bridging_flow(min_width, flow.nozzle_diameter()) : flow;
+					// widen the nominal line, then apply the bridge flow ratio as layerm.bridging_flow() does
+					Flow nominal = params.bridge ? layerm.region().flow(*layer.object(), extrusion_role, surface_height,
+					                                                    layer.id() == 0 || starts_at_object_base) :
+					                               flow;
+					if (nominal.width() >= min_width)
+						return flow;
+					nominal = nominal.with_width(min_width);
+					return params.bridge ? nominal.with_flow_ratio(region_config.bridge_flow) : nominal;
+				};
+				// the whole first layer on a raft without a Z gap to it
+				if (surface.is_bottom() && layer.lower_layer == nullptr && min_line_width_on_raft_interface(object_config))
+					params.flow = widen_on_interface(params.flow);
 				//BBS: record speed params
                 if (!params.bridge) {
                     if (params.extrusion_role == erInternalInfill)
@@ -423,6 +423,26 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
           float skeleton_density   = float(0.01 * region_config.skeleton_infill_density);
           append_density_param(lock_param.skeleton_density_params, skeleton_density, surface.expolygon);
 				}
+				// above supports, only the part of the bottom surface resting on the interface
+				if (surface.is_bottom() && layer.lower_layer != nullptr && ! layer.interface_contact.empty() &&
+					min_line_width_on_support_interface(object_config)) {
+					SurfaceFillParams wide = params;
+					wide.flow = widen_on_interface(params.flow);
+					if (wide.flow.width() > params.flow.width()) {
+						wide.spacing = wide.flow.spacing();
+						ExPolygons on_interface = intersection_ex(ExPolygons{ surface.expolygon }, layer.interface_contact);
+						ExPolygons remainder    = on_interface.empty() ? ExPolygons() : diff_ex(ExPolygons{ surface.expolygon }, on_interface);
+						if (! on_interface.empty() && remainder.empty())
+							params = wide;
+						else if (! on_interface.empty()) {
+							auto it_wide = set_surface_params.find(wide);
+							if (it_wide == set_surface_params.end())
+								it_wide = set_surface_params.insert(it_wide, wide);
+							interface_splits[{ region_id, size_t(&surface - &layerm.fill_surfaces.surfaces.front()) }] =
+								{ &(*it_wide), std::move(on_interface), std::move(remainder) };
+						}
+					}
+				}
                 auto it_params = set_surface_params.find(params);
 
 		        if (it_params == set_surface_params.end())
@@ -442,7 +462,25 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 	    for (const Surface &surface : layerm.fill_surfaces.surfaces)
 	        if (surface.surface_type != stInternalVoid) {
 	        	const SurfaceFillParams *params = region_to_surface_params[region_id][&surface - &layerm.fill_surfaces.surfaces.front()];
-				if (params != nullptr) {
+				if (auto it_split = interface_splits.find({ region_id, size_t(&surface - &layerm.fill_surfaces.surfaces.front()) });
+					params != nullptr && it_split != interface_splits.end()) {
+					auto add = [&](const SurfaceFillParams *part_params, ExPolygons &expolygons) {
+						SurfaceFill &fill = surface_fills[part_params->idx];
+						if (fill.region_id == size_t(-1)) {
+							fill.region_id = region_id;
+							fill.surface   = surface;
+							fill.surface.expolygon.clear();
+							fill.region_id_group.push_back(region_id);
+							fill.no_overlap_expolygons = layerm.fill_no_overlap_expolygons;
+						} else if (find(fill.region_id_group.begin(), fill.region_id_group.end(), region_id) == fill.region_id_group.end()) {
+							fill.region_id_group.push_back(region_id);
+							fill.no_overlap_expolygons = union_ex(fill.no_overlap_expolygons, layerm.fill_no_overlap_expolygons);
+						}
+						append(fill.expolygons, std::move(expolygons));
+					};
+					add(it_split->second.params, it_split->second.on_interface);
+					add(params, it_split->second.remainder);
+				} else if (params != nullptr) {
 	        		SurfaceFill &fill = surface_fills[params->idx];
                     if (fill.region_id == size_t(-1)) {
 	        			fill.region_id = region_id;

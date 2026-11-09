@@ -416,6 +416,13 @@ static ExtrusionEntityCollection traverse_loops(const PerimeterGenerator &perime
             if (remain_polines.size() != 0) {
                 // Detect overhang perimeter / bridge. Zero-gap support must not force normal wall role/flow here:
                 // unsupported walls still need erOverhangPerimeter + overhang_flow. See GitHub #11462.
+                // min_line_width_on_interface: wider where the wall rests on the support interface
+                Polylines on_interface;
+                if (perimeter_generator.interface_contact != nullptr) {
+                    on_interface = intersection_pl(remain_polines, *perimeter_generator.interface_contact);
+                    if (! on_interface.empty())
+                        remain_polines = diff_pl(remain_polines, *perimeter_generator.interface_contact);
+                }
                 detect_bridge_wall(perimeter_generator,
                                    paths,
                                    remain_polines,
@@ -423,6 +430,14 @@ static ExtrusionEntityCollection traverse_loops(const PerimeterGenerator &perime
                                    perimeter_generator.mm3_per_mm_overhang(),
                                    perimeter_generator.overhang_flow.width(),
                                    perimeter_generator.overhang_flow.height());
+                if (! on_interface.empty())
+                    detect_bridge_wall(perimeter_generator,
+                                       paths,
+                                       on_interface,
+                                       erOverhangPerimeter,
+                                       perimeter_generator.overhang_flow_on_interface.mm3_per_mm(),
+                                       perimeter_generator.overhang_flow_on_interface.width(),
+                                       perimeter_generator.overhang_flow_on_interface.height());
             }
 
             if (paths.empty())
@@ -638,12 +653,19 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
          extrusion_coll.loop_node_range.first = perimeter_generator.loop_nodes->size();
 
     // min_line_width_on_interface: Arachne sets the line widths itself. Every line of the first layer on a raft,
-    // only the overhang lines above supports
+    // only the overhang lines resting on the support interface
     const coord_t min_bead_width       = min_bead_width_on_interface(perimeter_generator);
     const bool    widen_all_on_raft    = min_bead_width > 0 && perimeter_generator.lower_slices == nullptr &&
                                          min_line_width_on_raft_interface(*perimeter_generator.object_config);
     const bool    widen_overhang_lines = min_bead_width > 0 && perimeter_generator.lower_slices != nullptr &&
-                                         min_line_width_on_support_interface(*perimeter_generator.object_config);
+                                         perimeter_generator.interface_contact != nullptr;
+    ZPaths        interface_contact_paths;
+    if (widen_overhang_lines)
+        for (const Polygon &poly : to_polygons(*perimeter_generator.interface_contact)) {
+            interface_contact_paths.emplace_back();
+            for (const Point &p : poly)
+                interface_contact_paths.back().emplace_back(p.x(), p.y(), 0);
+        }
 
     for (PerimeterGeneratorArachneExtrusion &pg_extrusion : pg_extrusions) {
         Arachne::ExtrusionLine* extrusion = pg_extrusion.extrusion;
@@ -741,13 +763,22 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
             // the loop centerline and original lower slices is >= half nozzle diameter
             // detect if the overhang perimeter is bridge
             ZPaths path_overhang = clip_extrusion(subject_path, clip_paths, ClipperLib_Z::ctDifference);
-            if (widen_overhang_lines)
-                for (ZPath &overhang : path_overhang)
+            ZPaths path_on_interface;
+            if (widen_overhang_lines) {
+                ZPaths path_off_interface;
+                for (const ZPath &overhang : path_overhang) {
+                    append(path_on_interface, clip_extrusion(overhang, interface_contact_paths, ClipperLib_Z::ctIntersection));
+                    append(path_off_interface, clip_extrusion(overhang, interface_contact_paths, ClipperLib_Z::ctDifference));
+                }
+                path_overhang = std::move(path_off_interface);
+                for (ZPath &overhang : path_on_interface)
                     for (auto &pt : overhang)
                         pt.z() = std::max<ClipperLib_Z::cInt>(pt.z(), min_bead_width);
+            }
             // Zero-gap support must not force normal wall role/flow: unsupported walls still need
             // erOverhangPerimeter + overhang_flow. See GitHub #11462.
             detect_brigde_wall_arachne(perimeter_generator, paths, path_overhang, erOverhangPerimeter, perimeter_generator.overhang_flow);
+            detect_brigde_wall_arachne(perimeter_generator, paths, path_on_interface, erOverhangPerimeter, perimeter_generator.overhang_flow_on_interface);
             // Reapply the nearest point search for starting point.
             // We allow polyline reversal because Clipper may have randomly reversed polylines during clipping.
             // Arachne sometimes creates extrusion with zero-length (just two same endpoints);

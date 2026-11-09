@@ -609,6 +609,7 @@ private:
 
 private:
     void make_perimeters();
+    void detect_interface_contacts();
     void prepare_infill();
     void infill();
     void ironing();

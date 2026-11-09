@@ -42,6 +42,9 @@ public:
     Flow                         perimeter_flow;
     Flow                         ext_perimeter_flow;
     Flow                         overhang_flow;
+    // min_line_width_on_interface: the overhang walls inside interface_contact rest on the support interface
+    Flow                         overhang_flow_on_interface;
+    const ExPolygons            *interface_contact { nullptr };
     Flow                         solid_infill_flow;
     const PrintRegionConfig     *config;
     const PrintObjectConfig     *object_config;

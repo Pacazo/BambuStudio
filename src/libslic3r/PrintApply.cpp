@@ -2,6 +2,7 @@
 #include "Model.hpp"
 #include "Print.hpp"
 #include "FilamentMixer.hpp"
+#include "MinLineWidthOnInterface.hpp"
 #include "SupportRecommendedParams.hpp"
 
 #include <cfloat>
@@ -1907,6 +1908,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     update_apply_status(print_object_status.print_object->invalidate_step(posSupportMaterial));
                     if (print_object_status.print_object->config().support_top_z_distance == 0.)
                         update_apply_status(print_object_status.print_object->invalidate_step(posPrepareInfill));
+                    if (min_line_width_on_support_interface(print_object_status.print_object->config()))
+                        update_apply_status(print_object_status.print_object->invalidate_step(posPerimeters));
                 }
                 if (supports_differ) {
                     // Copy just the support volumes.

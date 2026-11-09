@@ -21,6 +21,7 @@
 #include "Fill/FillLightning.hpp"
 #include "Format/STL.hpp"
 #include "InternalBridgeDetector.hpp"
+#include "MinLineWidthOnInterface.hpp"
 #include "AABBTreeLines.hpp"
 
 #include <float.h>
@@ -491,6 +492,8 @@ void PrintObject::make_perimeters()
         m_typed_slices = false;
     }
 
+    this->detect_interface_contacts();
+
     // compare each layer to the one below, and mark those slices needing
     // one additional inner perimeter, like the top of domed objects-
 
@@ -810,6 +813,56 @@ ZeroGapContactMask compute_zero_gap_contact_mask(
     return result;
 }
 
+// Contact candidate for min_line_width_on_interface. Unlike compute_zero_gap_contact_mask() it covers every
+// support type, keeps the sloped overhangs and reaches the object outline, where the walls are.
+ExPolygons compute_interface_contact(
+    const PrintObject &object,
+    const Layer &layer,
+    const Layer &lower_layer,
+    size_t layer_id,
+    const std::vector<Polygons> &blockers,
+    const std::vector<Polygons> &enforcers,
+    bool automatic)
+{
+    const float extrusion_width_scaled = scaled_external_perimeter_width(layer);
+    if (extrusion_width_scaled <= 0.f)
+        return {};
+
+    const PrintObjectConfig &config         = object.config();
+    const Polygons           lower_polygons = to_polygons(lower_layer.lslices);
+
+    // automatic overhangs beyond the threshold angle, as detect_overhangs
+    ExPolygons mask;
+    if (automatic) {
+        const double threshold_rad = zero_gap_threshold_rad(config);
+        const float  angle_offset  = (threshold_rad > 0.)
+            ? float(scale_(lower_layer.height / tan(threshold_rad)))
+            : 0.5f * extrusion_width_scaled;
+        mask = opening_ex(diff_ex(layer.lslices, expand(lower_polygons, angle_offset, ClipperLib::jtSquare, 0.)),
+                          0.25f * extrusion_width_scaled);
+    }
+
+    // support enforcers, as if the slope were 90 degrees
+    if (layer_id < enforcers.size() && ! enforcers[layer_id].empty()) {
+        ExPolygons enforced = diff_ex(
+            intersection_ex(layer.lslices, enforcers[layer_id]),
+            expand(lower_polygons, 0.05f * extrusion_width_scaled, ClipperLib::jtSquare, 0.));
+        if (! enforced.empty())
+            mask = mask.empty() ? std::move(enforced) : union_ex(mask, enforced);
+    }
+    if (mask.empty())
+        return mask;
+
+    if (layer_id < blockers.size() && ! blockers[layer_id].empty())
+        mask = diff_ex(mask, expand(union_(blockers[layer_id]), float(1000. * SCALED_EPSILON)));
+
+    // the support keeps this distance to the walls of the layer below
+    const float xy_gap = float(scale_(config.support_object_xy_distance.value));
+    if (xy_gap > SCALED_EPSILON && ! mask.empty())
+        mask = diff_ex(mask, expand(lower_polygons, xy_gap, ClipperLib::jtSquare, 0.));
+    return mask;
+}
+
 // Split each stBottomBridge fill surface into supported (stBottom) / unsupported (stBottomBridge).
 // Only significant contact pieces are promoted; everything else of the original surface stays
 // a single Bridge remainder (slivers are merged back, not left as separate islands).
@@ -858,6 +911,44 @@ void refine_fill_surfaces_for_zero_gap_contact(LayerRegion &layerm, const ExPoly
 }
 
 } // namespace
+
+// min_line_width_on_interface: the areas of each layer expected to rest on a zero gap support interface
+void PrintObject::detect_interface_contacts()
+{
+    for (Layer *layer : m_layers)
+        layer->interface_contact.clear();
+    if (m_layers.size() < 2 || ! min_line_width_on_support_interface(m_config))
+        return;
+
+    const SupportType type = m_config.support_type.value;
+    // which overhangs get support is not known here with these options: only the enforced ones
+    const bool automatic = is_auto(type) && ! m_config.support_critical_regions_only.value && ! m_config.bridge_no_support.value;
+    std::vector<Polygons> blockers = this->slice_support_blockers();
+    this->project_and_append_custom_facets(false, EnforcerBlockerType::BLOCKER, blockers);
+    std::vector<Polygons> enforcers = this->slice_support_enforcers();
+    this->project_and_append_custom_facets(false, EnforcerBlockerType::ENFORCER, enforcers);
+    tbb::parallel_for(
+        tbb::blocked_range<size_t>(1, m_layers.size()),
+        [this, &blockers, &enforcers, automatic](const tbb::blocked_range<size_t> &range) {
+            for (size_t layer_id = range.begin(); layer_id < range.end(); ++ layer_id) {
+                m_print->throw_if_canceled();
+                m_layers[layer_id]->interface_contact = compute_interface_contact(
+                    *this, *m_layers[layer_id], *m_layers[layer_id - 1], layer_id, blockers, enforcers, automatic);
+            }
+        });
+
+    // normal supports on the build plate only: none above the object itself
+    if (m_config.support_on_build_plate_only.value && ! is_tree(type)) {
+        Polygons below;
+        for (size_t layer_id = 1; layer_id < m_layers.size(); ++ layer_id) {
+            m_print->throw_if_canceled();
+            below = union_(below, to_polygons(m_layers[layer_id - 1]->lslices));
+            ExPolygons &contact = m_layers[layer_id]->interface_contact;
+            if (! contact.empty())
+                contact = diff_ex(contact, below);
+        }
+    }
+}
 
 // BBS multi-diameter: a suppressed orphan is sliced but never extruded, so the step above it rests on nothing
 // there, while detect_surfaces_type() compared against the sliced step and typed it internal. Type it as the
@@ -1691,6 +1782,9 @@ bool PrintObject::invalidate_state_by_config_options(
             if (m_config.support_top_z_distance == 0.) {
                 // Zero-gap contact refinement in prepare_infill reads these support settings.
                 steps.emplace_back(posPrepareInfill);
+                // and so do the interface contacts of min_line_width_on_interface
+                if (min_line_width_on_support_interface(m_config))
+                    steps.emplace_back(posPerimeters);
             }
         } else if (
                opt_key == "bottom_shell_layers"
