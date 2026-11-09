@@ -1298,17 +1298,20 @@ static MultiNozzleSupportCombo multi_nozzle_support_combo(const DynamicPrintConf
 // (validation, G-code, placeholders, exported config) sees the overridden values
 static void apply_temperature_overrides(DynamicPrintConfig &config)
 {
-    auto override_ints = [&config](const std::string &opt_key, int value) {
+    auto override_ints = [&config](const std::string &opt_key, int value, bool keep_zero = false) {
         if (ConfigOptionInts *opt = config.option<ConfigOptionInts>(opt_key))
-            std::fill(opt->values.begin(), opt->values.end(), value);
+            for (int &v : opt->values)
+                if (!keep_zero || v != 0)
+                    v = value;
     };
 
     const ConfigOptionBool *override_bed = config.option<ConfigOptionBool>("override_bed_temperature");
     if (override_bed && override_bed->value) {
         int bed_temp = config.opt_int("bed_temperature_override");
+        // 0 marks a plate type the filament does not support, keep it for the checks
         for (int type = btDefault + 1; type < btCount; ++type) {
-            override_ints(get_bed_temp_key(BedType(type)), bed_temp);
-            override_ints(get_bed_temp_1st_layer_key(BedType(type)), bed_temp);
+            override_ints(get_bed_temp_key(BedType(type)), bed_temp, true);
+            override_ints(get_bed_temp_1st_layer_key(BedType(type)), bed_temp, true);
         }
     }
 
