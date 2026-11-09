@@ -56,6 +56,7 @@ bool Button::Create(wxWindow* parent, wxString text, wxString icon, long style, 
         e.Skip();
     });
     Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &e) {
+        keyDown = false;
         state_handler.set_state(0, StateHandler::Focused);
         Refresh();
         e.Skip();
@@ -492,9 +493,14 @@ void Button::keyDownUp(wxKeyEvent &event)
 {
     int code = event.GetKeyCode();
     if (code == WXK_SPACE || code == WXK_RETURN || code == WXK_NUMPAD_ENTER) {
-        // activate on key up, without faking a click: the mouse path captures the mouse
-        if (event.GetEventType() == wxEVT_KEY_UP)
+        // activate on key up, without faking a click: the mouse path captures the mouse.
+        // only after its own key down: the key up of a key pressed elsewhere may land here
+        if (event.GetEventType() == wxEVT_KEY_DOWN) {
+            keyDown = true;
+        } else if (keyDown) {
+            keyDown = false;
             sendButtonEvent();
+        }
         return;
     }
     if (event.GetEventType() == wxEVT_KEY_DOWN &&

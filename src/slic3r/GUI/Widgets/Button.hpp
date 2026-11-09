@@ -16,6 +16,7 @@ class Button : public StaticBox
     StateColor   text_color;
 
     bool pressedDown = false;
+    bool keyDown     = false;
     bool m_selected  = true;
     bool canFocus  = true;
     bool isCenter    = true;
