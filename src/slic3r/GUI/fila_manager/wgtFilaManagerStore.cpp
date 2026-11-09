@@ -227,19 +227,33 @@ void wgtFilaManagerStore::load()
     const fs::path path(get_storage_path());
     if (!fs::exists(path))
         return;
+    bool damaged = false;
     try {
         boost::nowide::ifstream in(path.string());
         const nlohmann::json    arr = nlohmann::json::parse(in);
+        if (!arr.is_array())
+            throw std::runtime_error("not a list of spools");
         m_spools.clear();
         for (const nlohmann::json& j : arr) {
-            FilamentSpool spool = FilamentSpool::from_json(j);
-            if (!spool.spool_id.empty())
-                m_spools[spool.spool_id] = std::move(spool);
+            try {
+                FilamentSpool spool = FilamentSpool::from_json(j);
+                if (!spool.spool_id.empty())
+                    m_spools[spool.spool_id] = std::move(spool);
+            } catch (const std::exception& e) {
+                damaged = true;
+                BOOST_LOG_TRIVIAL(error) << "[FilaManager] skipped an unreadable spool: " << e.what();
+            }
         }
         m_dirty = false;
         BOOST_LOG_TRIVIAL(info) << "[FilaManager] loaded " << m_spools.size() << " spools from " << path.string();
     } catch (const std::exception& e) {
+        damaged = true;
         BOOST_LOG_TRIVIAL(error) << "[FilaManager] failed to load " << path.string() << ": " << e.what();
+    }
+    if (damaged) {
+        // the next save overwrites the file: keep what could not be read
+        boost::system::error_code ec;
+        fs::copy_file(path, fs::path(path.string() + ".bad"), fs::copy_option::overwrite_if_exists, ec);
     }
 }
 
@@ -251,7 +265,9 @@ void wgtFilaManagerStore::save()
         fs::create_directories(path.parent_path());
         {
             boost::nowide::ofstream out(tmp_path.string(), std::ios::trunc);
-            out << spools_to_json().dump(1);
+            // replace invalid UTF-8 instead of throwing, which would lose every later change
+            out << spools_to_json().dump(1, ' ', false, nlohmann::json::error_handler_t::replace);
+            out.flush();
             if (!out)
                 throw std::runtime_error("write failed");
         }
