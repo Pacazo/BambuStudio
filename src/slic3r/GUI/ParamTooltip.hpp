@@ -74,6 +74,9 @@ private:
      * \param wrap Width available to the block, marker included.
      */
     void     set_details(const wxString &s, const wxColour &fg, const wxColour &bg, int wrap);
+    // Lay out [image][text] rows, the image on the left; collapses when there are none.
+    void     set_image_rows(const std::vector<std::pair<std::string, wxString>> &rows, bool dark, const wxColour &fg, const wxColour &bg, int wrap);
+    wxBitmap load_row_image(const std::string &image_id, bool dark);
     wxWindow *build_optkey_row();
     void     Rebuild(const std::string &opt_key, const std::string &wiki_path, bool dark, const wxString &line_label, const wxString &line_tooltip);
     void      update_optkey_row(const std::string &opt_key, bool dark); // dev-mode-only opt_key pill
@@ -106,6 +109,7 @@ private:
     Label          *m_desc_mark = nullptr; // red circle before a custom description
     wxStaticBitmap *m_image   = nullptr;
     wxWindow       *m_details = nullptr; // container for the bulleted detail rows
+    wxWindow       *m_image_rows = nullptr; // container for the [image][text] rows
     Label          *m_note    = nullptr;
     Label          *m_wiki    = nullptr;
 
@@ -117,6 +121,14 @@ private:
         Label   *text   = nullptr;
     };
     std::vector<DetailRow> m_detail_rows; // pooled across rebuilds; unused rows are hidden, not destroyed
+
+    struct ImageRow
+    {
+        wxSizer        *sizer = nullptr;
+        wxStaticBitmap *image = nullptr;
+        Label          *text  = nullptr;
+    };
+    std::vector<ImageRow> m_image_row_pool; // pooled like m_detail_rows
 
     wxWindow       *m_optkey_pill = nullptr;
     wxStaticText   *m_optkey      = nullptr;

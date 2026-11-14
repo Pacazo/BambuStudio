@@ -85,6 +85,7 @@ const Palette &dark_palette()
 // Spacing/size tokens
 constexpr int CARD_WIDTH       = 300; // total card width incl. padding
 constexpr int IMAGE_W          = 256; // uniform display width for every image (DIP), centered
+constexpr int ROW_IMAGE_W      = 96;  // image width in an image row, with its text to the right (DIP)
 constexpr int PAD              = 12;  // inner padding
 constexpr int GAP              = 8;   // vertical gap between rows
 constexpr int CARD_RADIUS      = 4;
@@ -143,6 +144,8 @@ struct ParamTipEntry
     wxString    note;
     // Per-combobox-value tips
     std::vector<std::pair<std::string, wxString>> value_tips;
+    // Rows of [image][text], the image on the left
+    std::vector<std::pair<std::string, wxString>> image_rows;
 };
 
 using TipMap = std::unordered_map<std::string, ParamTipEntry>;
@@ -276,6 +279,11 @@ ParamTipStore::ParamTipStore()
              _L("Normal supports are more regular and stable; tree supports touch the model less and are easier to remove.\n"
                 "Choose a manual mode when you need precise control."),
              _L("Manual mode is used together with the support-painting tool in the gizmo toolbar."))},
+        {"support_style",
+         make_entry("", _L("Adjusts the shape of the support within the chosen support type."),
+                    _L("Default: Grid for normal support; Tree Hybrid or Tree Organic for tree support.\n"
+                       "Grid: normal support expanded into regular rectangles.\n"
+                       "Snug: normal support that follows the overhangs tightly, for when the expanded grid gets in the way."))},
         {"support_threshold_angle",
          make_entry("support_threshold_angle", _L("Generates support for surfaces whose overhang angle is below the threshold; it is customizable in the automatic modes."),
                     _L("A smaller threshold supports only near-horizontal large overhangs, giving less support but possibly leaving gentle slopes unsupported.\n"
@@ -364,6 +372,12 @@ ParamTipStore::ParamTipStore()
 
     // Surfaced as ComboBox item tooltips (Choice::BUILD -> SetItemTooltip), keyed by the enum
     // value string used in PrintConfig (not the display label).
+    m_map["support_style"].image_rows = {
+        {"support_style_tree_slim", _L("Tree Slim: merges branches aggressively for much less support, without losing strength.")},
+        {"support_style_tree_strong", _L("Tree Strong: merges branches conservatively into strong, connected branches that can be hard to remove.")},
+        {"support_style_tree_organic", _L("Tree Organic: organic-shaped branches that merge aggressively; not available with adaptive layer height.")},
+        {"support_style_tree_hybrid", _L("Tree Hybrid: normal grid support under large flat overhangs, tree branches elsewhere.")},
+    };
     m_map["seam_position"].value_tips = {
         {"nearest", _L("Places the seam preferentially at concave or convex corners and shortens travel moves; suited to models with distinct edges.")},
         {"aligned", _L("Stacks each layer's seam into one vertical line, keeping the marks concentrated and easy to hide.")},
@@ -410,6 +424,66 @@ ParamTipStore::ParamTipStore()
         {"billow", _L("Similar to Perlin but clumpier, with clustered bumps and flat areas, like clouds.")},
         {"ridgedmulti", _L("Sharp jagged ridges with peaks and fine grooves, giving a marble-like texture.")},
         {"voronoi", _L("Divides the surface into cells and offsets each as a whole, forming a patchwork stepped texture.")},
+    };
+    m_map["sparse_infill_pattern"].value_tips = {
+        {"concentric", _L("The slowest and weakest pattern, never anchored to the walls, which suits flexible prints: they come out soft in all directions.")},
+        {"zig-zag", _L("Leaves tiny gaps between the lines, an unusual choice for sparse infill. Plaster or resin poured into the part is drawn into them by capillarity, which strengthens it.")},
+        {"grid", _L("Very fast and strong under compression, so it suits parts that will be stepped on, but it snaps along its lines when bent or pulled.")},
+        {"line", _L("In transparent filament it gives a nineties look, best in a contrasting color such as fluorescent yellow or transparent purple.")},
+        {"cubic", _L("Not very strong, but equally dense in all directions, so dice, balls and other rolling objects come out evenly balanced.")},
+        {"triangles", _L("Stronger than Grid and resists folding. The nozzle crosses existing lines at every intersection, which multiplies print problems, but with high-speed PLA, soft TPU or other filaments that cool slowly or melt quickly it is a free upgrade.")},
+        {"tri-hexagon", _L("Stiff against in-plane loads like Triangles, but no three lines meet at one point, so less material piles up at the crossings and the nozzle knocks the part less.")},
+        {"gyroid", _L("Slow, but strong and equally strong in all directions; for most models it holds up even with the walls disabled.")},
+        {"honeycomb", _L("The nozzle never crosses or plows through an existing line, and the lines interlock like bricks, so it is forgiving with finicky filaments and the best choice for clear prints.")},
+        {"adaptivecubic", _L("Cubic with lower density toward the center of the part, for very bulky models that need uniform strength, such as cosplay props.")},
+        {"alignedrectilinear", _L("For crystal-clear parts in transparent filament: smooth plate, 100% infill, 10-20 °C hotter, slight over-extrusion and no top or bottom layers.")},
+        {"3dhoneycomb", _L("The least contact between lines of any pattern: very weak, but very gentle to print, which can make otherwise unprintable materials printable.")},
+        {"hilbertcurve", _L("Never draws a straight line between two walls, so it cannot pull them together; slightly reduces warping in PEEK, PEI and nylon. Print time grows quickly with density.")},
+        {"archimedeanchords", _L("Poor as sparse infill, where Concentric is better. On the top or bottom surface it gives a spun-metal finish, especially with satin, silk, co-extruded and chameleon filaments.")},
+        {"octagramspiral", _L("Better on the top or bottom surface; in wood filament with a coat of wood stain it gives a parquetry effect.")},
+        {"supportcubic", _L("Lowers the density away from the top surfaces, saving a lot of filament in tall models such as busts and buildings, but it makes them top-heavy.")},
+        {"lightning", _L("Extremely sparse, supporting only the top surfaces. For a fuzzy top surface, add three top layers, then a modifier volume three layers below the top with no top layers, one wall, Lightning infill and 30-80% density.")},
+        {"crosshatch", _L("A good general-purpose pattern, strong in all directions like Gyroid and not slow to print.")},
+        {"zigzag", _L("Keeps the lines consistent across layers and the whole object, for a regular look through translucent filament. Infill rotate step twists it into a crossed texture, and Symmetric infill y axis matches the texture on mirrored parts.")},
+        {"crosszag", _L("Gives the infill a retro art-deco fish-scale look.")},
+        {"lockedzag", _L("Staggers the infill next to the walls so each layer interlocks with the previous. The only pattern with two independent densities, near the walls and in the center, to tune filament use and print time.")},
+        {"2dlattice", _L("For flexible prints, such as a watch band, that should bend in one direction only.")},
+    };
+    m_map["top_surface_pattern"].value_tips = {
+        {"concentric", _L("Suited to round surfaces; on square ones the loops meet in diagonal seams.")},
+        {"zig-zag", _L("The fastest, but with a less uniform sheen than Monotonic.")},
+        {"monotonic", _L("Every line overlaps the last the same way, giving an even, smooth sheen.")},
+        {"monotonicline", _L("Like Monotonic, without the short links between lines and with gap filling, for a cleaner finish at a slower speed.")},
+        {"globalmonotonicline", _L("Like Monotonic line, but swept across the whole surface at once, so the finish stays even over separate areas.")},
+        {"alignedrectilinear", _L("Keeps the same line direction on every layer; part of the recipe for crystal-clear prints in transparent filament.")},
+        {"hilbertcurve", _L("A decorative textured finish; slow to print.")},
+        {"archimedeanchords", _L("A spun-metal finish, especially with satin, silk, co-extruded and chameleon filaments.")},
+        {"octagramspiral", _L("In wood filament with a coat of wood stain it gives a parquetry effect.")},
+    };
+    m_map["bottom_surface_pattern"].value_tips = m_map["top_surface_pattern"].value_tips;
+    m_map["locked_skin_infill_pattern"].value_tips     = m_map["sparse_infill_pattern"].value_tips;
+    m_map["locked_skeleton_infill_pattern"].value_tips = m_map["sparse_infill_pattern"].value_tips;
+    m_map["sub_top_surface_pattern"].value_tips = {
+        {"concentric", _L("Its loops can show through on the top surface; suited under a concentric top.")},
+        {"zig-zag", _L("The fastest, but its lines can show through and mark the top surface.")},
+        {"monotonic", _L("The smoothest base for the top surface: its even lines show through without marks.")},
+        {"monotonicline", _L("Like Monotonic, without the short links between lines and with gap filling, for an even cleaner top at a slower speed.")},
+        {"globalmonotonicline", _L("Like Monotonic line, swept across the whole surface at once, so the top stays even over separate areas.")},
+        {"alignedrectilinear", _L("Keeps the same line direction on every layer; part of the recipe for crystal-clear prints in transparent filament.")},
+        {"hilbertcurve", _L("Its texture can show through on the top surface; suited under a Hilbert Curve top, or to reduce warping in PEEK, PEI and nylon.")},
+        {"archimedeanchords", _L("Its pattern can show through on the top surface; suited under a top with the same pattern.")},
+        {"octagramspiral", _L("Its pattern can show through on the top surface; suited under a top with the same pattern.")},
+    };
+    m_map["internal_solid_infill_pattern"].value_tips = {
+        {"concentric", _L("Suited to narrow and round areas; it is what narrow areas use when their detection is enabled.")},
+        {"zig-zag", _L("The fastest; inside the part its less uniform sheen does not show.")},
+        {"monotonic", _L("A flatter base for the top surface above, at a slower speed than Rectilinear.")},
+        {"monotonicline", _L("Like Monotonic, without the short links between lines and with gap filling; slower, with little gain hidden inside the part.")},
+        {"globalmonotonicline", _L("Like Monotonic line, swept across the whole surface at once; slower, with little gain hidden inside the part.")},
+        {"alignedrectilinear", _L("Keeps the same line direction on every layer; part of the recipe for crystal-clear prints in transparent filament.")},
+        {"hilbertcurve", _L("Never draws a straight line between two walls, so it cannot pull them together; reduces warping in PEEK, PEI and nylon, but prints slowly.")},
+        {"archimedeanchords", _L("A decorative pattern for visible surfaces; inside the part it only slows printing.")},
+        {"octagramspiral", _L("A decorative pattern for visible surfaces; inside the part it only slows printing.")},
     };
 }
 
@@ -685,6 +759,11 @@ void ParamTooltip::build_layout()
     m_image = new wxStaticBitmap(this, wxID_ANY, wxNullBitmap);
     col->Add(m_image, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, FromDIP(GAP));
 
+    // One row per image: the image on the left, its text wrapped to the right.
+    m_image_rows = new wxWindow(this, wxID_ANY);
+    m_image_rows->SetSizer(new wxBoxSizer(wxVERTICAL));
+    col->Add(m_image_rows, 0, wxEXPAND | wxTOP, FromDIP(GAP));
+
     // The details are a bullet list: one row per point, each row [marker][wrapped text], so the
     // wrapped lines hang under the text column instead of running back under the marker.
     m_details = new wxWindow(this, wxID_ANY);
@@ -768,6 +847,7 @@ void ParamTooltip::Rebuild(const std::string &opt_key, const std::string &wiki_p
     if (bmp.IsOk()) m_image->SetBitmap(bmp);
     sizer->Show(m_image, bmp.IsOk(), true);
 
+    set_image_rows(e.image_rows, dark, p.details, p.card_bg, wrap);
     set_details(e.details, p.details, p.card_bg, wrap);
     set_row(sizer, m_note, e.note, p.note, p.card_bg, wrap);
 
@@ -784,6 +864,60 @@ void ParamTooltip::Rebuild(const std::string &opt_key, const std::string &wiki_p
     sizer->Fit(this);
     SetClientSize(FromDIP(CARD_WIDTH), GetClientSize().GetHeight());
     Layout();
+}
+
+void ParamTooltip::set_image_rows(const std::vector<std::pair<std::string, wxString>> &rows, bool dark, const wxColour &fg, const wxColour &bg, int wrap)
+{
+    GetSizer()->Show(m_image_rows, !rows.empty(), true);
+    if (rows.empty()) return;
+
+    m_image_rows->SetBackgroundColour(bg);
+    wxSizer *col = m_image_rows->GetSizer();
+
+    while (m_image_row_pool.size() < rows.size()) {
+        ImageRow row;
+        row.image = new wxStaticBitmap(m_image_rows, wxID_ANY, wxNullBitmap);
+        row.text  = new Label(m_image_rows, Label::Body_13, wxEmptyString);
+        row.text->SetFont(Label::Body_13);
+
+        row.sizer = new wxBoxSizer(wxHORIZONTAL);
+        row.sizer->Add(row.image, 0, wxALIGN_TOP);
+        row.sizer->Add(row.text, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(GAP));
+        col->Add(row.sizer, 0, wxEXPAND | wxTOP, m_image_row_pool.empty() ? 0 : FromDIP(GAP));
+        m_image_row_pool.push_back(row);
+    }
+
+    const int text_wrap = wrap - FromDIP(ROW_IMAGE_W) - FromDIP(GAP);
+    for (size_t i = 0; i < m_image_row_pool.size(); ++i) {
+        const ImageRow &row  = m_image_row_pool[i];
+        const bool      used = i < rows.size();
+        col->Show(row.sizer, used, true);
+        if (!used) continue;
+
+        row.image->SetBitmap(load_row_image(rows[i].first, dark));
+        row.image->SetBackgroundColour(bg);
+        row.text->SetForegroundColour(fg);
+        row.text->SetBackgroundColour(bg);
+        row.text->SetLabel(rows[i].second);
+        row.text->Wrap(text_wrap);
+    }
+
+    col->Layout();
+    m_image_rows->InvalidateBestSize();
+}
+
+wxBitmap ParamTooltip::load_row_image(const std::string &image_id, bool dark)
+{
+    // the dark variant is optional: screenshots read the same on both themes
+    const std::string base = resources_dir() + "/tooltip/images/" + image_id;
+    wxString          path = from_u8(base + "_dark.png");
+    if (!dark || !wxFileExists(path)) path = from_u8(base + ".png");
+
+    wxImage image;
+    if (!wxFileExists(path) || !image.LoadFile(path, wxBITMAP_TYPE_PNG) || !image.IsOk() || image.GetWidth() <= 0) return wxBitmap();
+    const int target_w = FromDIP(ROW_IMAGE_W);
+    image.Rescale(target_w, image.GetHeight() * target_w / image.GetWidth(), wxIMAGE_QUALITY_HIGH);
+    return wxBitmap(image);
 }
 
 void ParamTooltip::set_details(const wxString &s, const wxColour &fg, const wxColour &bg, int wrap)
