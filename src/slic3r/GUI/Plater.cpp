@@ -25384,16 +25384,17 @@ static std::string ironing_flow_filament_name(size_t filament_idx)
 
 static const std::string ironing_flow_placeholder = "Ironing flow calibration test";
 
-// 2 base layers, 2 layers of marks and text, 1 ironed top layer
-static TriangleMesh ironing_flow_test_mesh(const Calib_Params &params, const std::string &name)
+// 2 base layers, 2 layers of marks and text, 1 ironed top layer: the plate and the marks
+static std::array<TriangleMesh, 2> ironing_flow_test_meshes(const Calib_Params &params, const std::string &name)
 {
     const auto  &print_config       = wxGetApp().preset_bundle->prints.get_edited_preset().config;
     const double first_layer_height = print_config.option<ConfigOptionFloat>("initial_layer_print_height")->value;
     const double layer_height       = print_config.option<ConfigOptionFloat>("layer_height")->value;
     const double nozzle_diameter    = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloatsNullable>("nozzle_diameter")->get_at(0);
-    return TriangleMesh(ironing_flow_calib_mesh(params.start, params.end, params.step, name, nozzle_diameter,
-                                                first_layer_height + layer_height, first_layer_height + 3. * layer_height,
-                                                first_layer_height + 4. * layer_height));
+    IroningFlowCalibMeshes meshes = ironing_flow_calib_meshes(params.start, params.end, params.step, name, nozzle_diameter,
+                                                              first_layer_height + layer_height, first_layer_height + 3. * layer_height,
+                                                              first_layer_height + 4. * layer_height);
+    return { TriangleMesh(std::move(meshes.plate)), TriangleMesh(std::move(meshes.marks)) };
 }
 
 // name the ironing flow tests after their filaments when slicing, placeholder while not up to date
@@ -25401,31 +25402,38 @@ static bool update_ironing_flow_names(Model &model, const Print *print, bool sli
 {
     if (!print || print->calib_params().mode != CalibMode::Calib_Ironing_Flow)
         return false;
-    // centred like ModelVolume::center_geometry_after_creation() on load, so that the test stays in place
-    auto centred_mesh = [print](const std::string &name) {
-        TriangleMesh mesh  = ironing_flow_test_mesh(print->calib_params(), name);
-        const Vec3d  shift = mesh.bounding_box().center();
-        mesh.translate(-(float) shift(0), -(float) shift(1), -(float) shift(2));
-        mesh.set_init_shift(shift);
-        return mesh;
-    };
     bool changed = false;
     for (ModelObject *object : model.objects) {
-        if (object->name != into_u8(_L("Ironing flow test")) || object->volumes.size() != 1)
+        // the plate and the marks, as calib_ironing_flow() loads them
+        if (object->name != into_u8(_L("Ironing flow test")) || object->volumes.size() != 2)
             continue;
-        ModelVolume *volume = object->volumes.front();
-        TriangleMesh mesh   = centred_mesh(ironing_flow_filament_name(size_t(std::max(volume->extruder_id(), 1) - 1)));
-        if (mesh.its.vertices == volume->mesh().its.vertices)
+        // centred like ModelVolume::center_geometry_after_creation() on load; true if the volumes already have them
+        std::array<TriangleMesh, 2> meshes;
+        auto make_meshes = [&](const std::string &name) {
+            meshes          = ironing_flow_test_meshes(print->calib_params(), name);
+            bool up_to_date = true;
+            for (size_t i = 0; i < meshes.size(); ++i) {
+                const Vec3d shift = meshes[i].bounding_box().center();
+                meshes[i].translate(-shift.cast<float>());
+                meshes[i].set_init_shift(shift);
+                up_to_date = up_to_date && meshes[i].its.vertices == object->volumes[i]->mesh().its.vertices;
+            }
+            return up_to_date;
+        };
+        if (make_meshes(ironing_flow_filament_name(size_t(std::max(object->volumes.front()->extruder_id(), 1) - 1))) ||
+            (!slicing && make_meshes(ironing_flow_placeholder)))
             continue;
-        if (!slicing) {
-            mesh = centred_mesh(ironing_flow_placeholder);
-            if (mesh.its.vertices == volume->mesh().its.vertices)
+        // keep the marks in place on the plate
+        object->volumes.back()->set_offset(object->volumes.front()->get_offset() + meshes[1].get_init_shift() - meshes[0].get_init_shift());
+        for (size_t i = 0; i < meshes.size(); ++i) {
+            ModelVolume *volume = object->volumes[i];
+            if (meshes[i].its.vertices == volume->mesh().its.vertices)
                 continue;
+            volume->set_mesh(std::move(meshes[i]));
+            volume->set_new_unique_id();
+            volume->calculate_convex_hull();
+            volume->invalidate_convex_hull_2d();
         }
-        volume->set_mesh(std::move(mesh));
-        volume->set_new_unique_id();
-        volume->calculate_convex_hull();
-        volume->invalidate_convex_hull_2d();
         object->invalidate_bounding_box();
         object->ensure_on_bed();
         changed = true;
@@ -25485,8 +25493,14 @@ void Plater::calib_ironing_flow(const Calib_Params &params)
     print_config->set_key_value("enable_wrapping_detection", new ConfigOptionBool(false));
     print_config->set_key_value("print_sequence", new ConfigOptionEnum<PrintSequence>(PrintSequence::ByObject));
 
-    sidebar().obj_list()->load_mesh_object(ironing_flow_test_mesh(params, ironing_flow_placeholder), _L("Ironing flow test"), true);
+    const std::array<TriangleMesh, 2> meshes = ironing_flow_test_meshes(params, ironing_flow_placeholder);
+    sidebar().obj_list()->load_mesh_object({ { &meshes[0], _L("Ironing flow test") }, { &meshes[1], _L("Marks") } }, _L("Ironing flow test"), true);
     auto obj = model().objects[0];
+    // marks and text in the second filament, if any, so that they stand out
+    if (const size_t filaments = wxGetApp().preset_bundle->filament_presets.size(); filaments > 1) {
+        obj->volumes.back()->config.set_key_value("extruder", new ConfigOptionInt(2));
+        sidebar().obj_list()->update_filament_values_for_items(filaments);
+    }
     obj->config.set_key_value("ironing_type", new ConfigOptionEnum<IroningType>(IroningType::TopmostOnly));
     obj->config.set_key_value("ironing_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
     obj->config.set_key_value("ironing_flow", new ConfigOptionPercent(params.start));
